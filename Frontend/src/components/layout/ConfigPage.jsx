@@ -39,14 +39,28 @@ const Toggle = ({ checked, onChange, label, disabled }) => (
   </button>
 );
 
-/** Compact settings row: label + hint close to control */
-const SettingRow = ({ title, hint, children }) => (
-  <div className="flex items-center justify-between gap-3 py-2.5 border-b border-gray-100 last:border-0">
-    <div className="min-w-0 pr-2">
-      <p className="text-sm font-medium text-gray-900">{title}</p>
-      {hint ? <p className="text-xs text-gray-500 mt-0.5">{hint}</p> : null}
+/** Settings row aligned with Monitoring card Row rhythm */
+const SettingRow = ({ title, hint, children, stackOnMobile = false }) => (
+  <div
+    className={`flex gap-3 py-2.5 border-b border-gray-100 last:border-0 ${
+      stackOnMobile
+        ? 'flex-col sm:flex-row sm:items-center sm:justify-between'
+        : 'items-center justify-between'
+    }`}
+  >
+    <div className="min-w-0 flex-1">
+      <p className="text-sm font-medium text-gray-900 leading-snug">{title}</p>
+      {hint ? (
+        <p className="text-xs text-gray-500 mt-0.5 leading-snug">{hint}</p>
+      ) : null}
     </div>
-    <div className="shrink-0 flex items-center gap-2">{children}</div>
+    <div
+      className={`shrink-0 flex items-center gap-2 ${
+        stackOnMobile ? 'w-full sm:w-auto' : ''
+      }`}
+    >
+      {children}
+    </div>
   </div>
 );
 
@@ -239,7 +253,7 @@ export default function ConfigPage() {
       </section>
 
       <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 sm:p-5">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-3">
+        <div className="flex items-start justify-between gap-3 mb-3">
           <div className="min-w-0">
             <h2 className="text-lg font-semibold text-gray-900">
               Slack Notifications
@@ -249,10 +263,12 @@ export default function ConfigPage() {
             </p>
           </div>
           {loading ? (
-            <span className="text-sm text-gray-400 shrink-0">Checking…</span>
+            <span className="text-sm text-gray-400 shrink-0 self-start">
+              Checking…
+            </span>
           ) : (
             <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold uppercase rounded-full border shrink-0 ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold uppercase rounded-full border shrink-0 self-start ${
                 configured
                   ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
                   : 'bg-gray-100 text-gray-600 border-gray-200'
@@ -268,9 +284,13 @@ export default function ConfigPage() {
           )}
         </div>
 
-        {settingsError && <AlertBanner>{settingsError}</AlertBanner>}
+        {settingsError && (
+          <div className="mb-2">
+            <AlertBanner>{settingsError}</AlertBanner>
+          </div>
+        )}
         {settingsSuccess && (
-          <div className="mb-3">
+          <div className="mb-2">
             <AlertBanner tone="success">{settingsSuccess}</AlertBanner>
           </div>
         )}
@@ -286,110 +306,114 @@ export default function ConfigPage() {
             to configure Slack notifications.
           </p>
         ) : (
-          <form
-            onSubmit={handleSaveSlackSettings}
-            className="max-w-xl space-y-1"
-          >
-            <SettingRow title="Website" hint="Settings apply to the selected site.">
-              <Select
-                id="slack-website"
-                value={selectedWebsiteId}
-                onChange={(e) => setSelectedWebsiteId(e.target.value)}
-                disabled={formDisabled}
-                className="w-44 sm:w-52"
-                aria-label="Website"
-                options={sites.map((site) => ({
-                  value: site._id,
-                  label: site.name,
-                }))}
-              />
-            </SettingRow>
-
-            <SettingRow
-              title="Enable Slack Notifications"
-              hint="When off, this site will not send Slack alerts."
-            >
-              <Toggle
-                checked={slackForm.enabled}
-                onChange={(v) =>
-                  setSlackForm((prev) => ({ ...prev, enabled: v }))
-                }
-                label="Enable Slack Notifications"
-                disabled={formDisabled}
-              />
-            </SettingRow>
-
-            <SettingRow
-              title="Initial alert"
-              hint="Sent when the site first goes DOWN."
-            >
-              <span className="text-sm font-semibold text-gray-900">
-                Immediately
-              </span>
-            </SettingRow>
-
-            <SettingRow
-              title="Repeat Slack Alert"
-              hint="While still DOWN, send again after this interval."
-            >
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={slackForm.repeatInterval}
-                  onChange={(e) =>
-                    setSlackForm((prev) => ({
-                      ...prev,
-                      repeatInterval: e.target.value,
-                    }))
-                  }
-                  disabled={formDisabled || !slackForm.enabled}
-                  className="input-field w-16 py-2 text-center"
-                  aria-label="Repeat interval value"
-                />
+          <form onSubmit={handleSaveSlackSettings}>
+            <div>
+              <SettingRow
+                title="Website"
+                hint="Settings apply to the selected site."
+                stackOnMobile
+              >
                 <Select
-                  value={slackForm.repeatUnit}
-                  onChange={(e) =>
+                  id="slack-website"
+                  value={selectedWebsiteId}
+                  onChange={(e) => setSelectedWebsiteId(e.target.value)}
+                  disabled={formDisabled}
+                  className="w-full sm:w-56"
+                  aria-label="Website"
+                  options={sites.map((site) => ({
+                    value: site._id,
+                    label: site.name,
+                  }))}
+                />
+              </SettingRow>
+
+              <SettingRow
+                title="Enable Slack Notifications"
+                hint="When off, this site will not send Slack alerts."
+              >
+                <Toggle
+                  checked={slackForm.enabled}
+                  onChange={(v) =>
+                    setSlackForm((prev) => ({ ...prev, enabled: v }))
+                  }
+                  label="Enable Slack Notifications"
+                  disabled={formDisabled}
+                />
+              </SettingRow>
+
+              <SettingRow
+                title="Initial alert"
+                hint="Sent when the site first goes DOWN."
+              >
+                <span className="text-sm font-medium text-gray-900">
+                  Immediately
+                </span>
+              </SettingRow>
+
+              <SettingRow
+                title="Repeat Slack Alert"
+                hint="While still DOWN, send again after this interval."
+                stackOnMobile
+              >
+                <div className="flex w-full sm:w-auto items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={slackForm.repeatInterval}
+                    onChange={(e) =>
+                      setSlackForm((prev) => ({
+                        ...prev,
+                        repeatInterval: e.target.value,
+                      }))
+                    }
+                    disabled={formDisabled || !slackForm.enabled}
+                    className="input-field w-20 text-center shrink-0"
+                    aria-label="Repeat interval value"
+                  />
+                  <Select
+                    value={slackForm.repeatUnit}
+                    onChange={(e) =>
+                      setSlackForm((prev) => ({
+                        ...prev,
+                        repeatUnit: e.target.value,
+                      }))
+                    }
+                    disabled={formDisabled || !slackForm.enabled}
+                    className="flex-1 sm:flex-none sm:w-32 min-w-0"
+                    aria-label="Repeat interval unit"
+                    options={[
+                      { value: 'minutes', label: 'Minutes' },
+                      { value: 'hours', label: 'Hours' },
+                      { value: 'days', label: 'Days' },
+                    ]}
+                  />
+                </div>
+              </SettingRow>
+
+              <SettingRow
+                title="Recovery Notification"
+                hint="Notify Slack when the site recovers to UP."
+              >
+                <Toggle
+                  checked={slackForm.recoveryNotification}
+                  onChange={(v) =>
                     setSlackForm((prev) => ({
                       ...prev,
-                      repeatUnit: e.target.value,
+                      recoveryNotification: v,
                     }))
                   }
+                  label="Recovery Notification"
                   disabled={formDisabled || !slackForm.enabled}
-                  className="w-28"
-                  aria-label="Repeat interval unit"
-                  options={[
-                    { value: 'minutes', label: 'Minutes' },
-                    { value: 'hours', label: 'Hours' },
-                    { value: 'days', label: 'Days' },
-                  ]}
                 />
-              </div>
-            </SettingRow>
+              </SettingRow>
+            </div>
 
-            <SettingRow
-              title="Recovery Notification"
-              hint="Notify Slack when the site recovers to UP."
-            >
-              <Toggle
-                checked={slackForm.recoveryNotification}
-                onChange={(v) =>
-                  setSlackForm((prev) => ({
-                    ...prev,
-                    recoveryNotification: v,
-                  }))
-                }
-                label="Recovery Notification"
-                disabled={formDisabled || !slackForm.enabled}
-              />
-            </SettingRow>
-
-            <div className="pt-3">
+            <div className="pt-4 flex justify-end sm:justify-start">
               <button
                 type="submit"
                 disabled={formDisabled}
-                className="btn-primary"
+                className="btn-primary min-w-[8.5rem]"
               >
                 {saving ? 'Saving…' : settingsLoading ? 'Loading…' : 'Save Settings'}
               </button>
