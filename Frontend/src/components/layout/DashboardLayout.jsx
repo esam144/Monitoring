@@ -186,7 +186,7 @@ export default function DashboardLayout() {
           </div>
         </div>
 
-        <div className="lg:col-span-7 bg-gray-50 border border-gray-200 rounded-2xl p-4 sm:p-6 flex flex-col shadow-sm overflow-hidden min-w-0">
+        <div className="lg:col-span-7 bg-gray-50 border border-gray-200 rounded-2xl p-4 sm:p-6 flex flex-col shadow-sm overflow-visible min-w-0">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Website Statistics</h2>
@@ -208,16 +208,25 @@ export default function DashboardLayout() {
           ) : stats.length === 0 ? (
             <p className="text-sm text-gray-500 py-12 text-center">No website stats yet.</p>
           ) : (
-            <div className="h-48 sm:h-56 w-full pt-6 pb-2 flex items-end gap-2 overflow-x-auto">
-              {stats.map((item) => {
+            <div className="h-52 sm:h-60 w-full pt-20 pb-2 flex items-end gap-2 overflow-visible">
+              {stats.map((item, index) => {
                 const value = chartMetric === 'uptime' ? item.uptimePercentage : item.downCount;
                 const heightPercent = maxChartCount > 0 ? (value / maxChartCount) * 100 : 0;
+                const isFirst = index === 0;
+                const isLast = index === stats.length - 1;
+                const tooltipAlign = isFirst
+                  ? 'left-0 translate-x-0'
+                  : isLast
+                    ? 'right-0 left-auto translate-x-0'
+                    : 'left-1/2 -translate-x-1/2';
                 return (
                   <div
                     key={item.websiteId}
-                    className="relative flex flex-col items-center h-full justify-end group min-w-[52px] flex-1"
+                    className="relative flex flex-col items-center h-full justify-end group flex-1 min-w-0"
                   >
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black text-white text-sm font-medium p-2 rounded mb-1 whitespace-nowrap pointer-events-none shadow-md absolute bottom-full z-20">
+                    <div
+                      className={`opacity-0 group-hover:opacity-100 transition-opacity bg-black text-white text-sm font-medium p-2.5 rounded-lg mb-1.5 whitespace-nowrap pointer-events-none shadow-lg absolute bottom-full z-30 ${tooltipAlign}`}
+                    >
                       <div className="font-bold">{item.name}</div>
                       <div>Uptime: {item.uptimePercentage}%</div>
                       <div>Down: {item.downCount}</div>
