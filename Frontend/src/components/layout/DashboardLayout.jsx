@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getOverview, getStats } from '../../api/monitoringApi';
 import { getErrorMessage } from '../../api/axios';
+import Select from '../ui/Select';
 import PageShell, { AlertBanner, PageHeader } from './PageShell';
 
 const REFRESH_MS = 45000;
@@ -84,16 +85,17 @@ export default function DashboardLayout() {
         title="System Overview"
         description="Live health metrics · refreshes every 45 seconds"
         actions={
-          <select
+          <Select
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value)}
-            className="input-field w-auto min-w-[8rem]"
+            className="w-auto min-w-[8rem]"
             aria-label="Time range"
-          >
-            <option value="24h">24 Hours</option>
-            <option value="48h">48 Hours</option>
-            <option value="72h">72 Hours</option>
-          </select>
+            options={[
+              { value: '24h', label: '24 Hours' },
+              { value: '48h', label: '48 Hours' },
+              { value: '72h', label: '72 Hours' },
+            ]}
+          />
         }
       />
 
@@ -192,15 +194,16 @@ export default function DashboardLayout() {
               <h2 className="text-lg font-semibold text-gray-900">Website Statistics</h2>
               <p className="text-sm text-gray-500">Performance for the {rangeLabel}</p>
             </div>
-            <select
+            <Select
               value={chartMetric}
               onChange={(e) => setChartMetric(e.target.value)}
-              className="input-field w-full sm:w-auto"
+              className="w-full sm:w-auto min-w-[10rem]"
               aria-label="Chart metric"
-            >
-              <option value="downCount">Down Count</option>
-              <option value="uptime">Uptime %</option>
-            </select>
+              options={[
+                { value: 'downCount', label: 'Down Count' },
+                { value: 'uptime', label: 'Uptime %' },
+              ]}
+            />
           </div>
 
           {loading ? (

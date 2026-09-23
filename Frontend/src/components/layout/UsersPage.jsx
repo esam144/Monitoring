@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createUser, deleteUser, listUsers, updateUser } from '../../api/userApi';
 import { getErrorMessage } from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
+import Select from '../ui/Select';
 import PageShell, { AlertBanner, PageHeader } from './PageShell';
 
 export default function UsersPage() {
@@ -366,14 +367,14 @@ export default function UsersPage() {
 
               <div>
                 <label className="label-field">Role</label>
-                <select
+                <Select
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className="input-field"
-                >
-                  <option value="user">User</option>
-                  <option value="admin">Admin</option>
-                </select>
+                  options={[
+                    { value: 'user', label: 'User' },
+                    { value: 'admin', label: 'Admin' },
+                  ]}
+                />
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">

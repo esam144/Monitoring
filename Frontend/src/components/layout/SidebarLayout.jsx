@@ -89,7 +89,7 @@ export default function SidebarLayout({ children }) {
   const displayName = user?.name || user?.email || 'User';
 
   return (
-    <div className="relative flex w-full min-h-screen border border-gray-200 bg-gray-100 overflow-hidden shadow-sm">
+    <div className="relative flex w-full h-screen max-h-screen border border-gray-200 bg-gray-100 overflow-hidden shadow-sm">
       {!isMobileMenuOpen && (
         <header className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between h-14 px-4 bg-gray-100 border-b border-gray-200">
           <div className="flex items-center gap-3 min-w-0">
@@ -176,7 +176,7 @@ export default function SidebarLayout({ children }) {
       <aside
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className={`hidden md:flex md:h-screen bg-gray-100 flex-col justify-between p-3 flex-shrink-0 transition-all duration-300 ease-in-out ${
+        className={`hidden md:flex md:sticky md:top-0 md:h-screen md:self-start bg-gray-100 flex-col justify-between p-3 flex-shrink-0 transition-all duration-300 ease-in-out z-20 ${
           isHovered ? 'md:w-56' : 'md:w-16'
         }`}
       >
@@ -249,7 +249,7 @@ export default function SidebarLayout({ children }) {
       </aside>
 
       {!isMobileMenuOpen && (
-        <main className="flex-1 min-w-0 bg-white rounded-xl mt-14 md:mt-2 m-2 p-4 sm:p-5 md:p-6 overflow-y-auto overflow-x-hidden border border-gray-200/80 shadow-inner">
+        <main className="flex-1 min-w-0 min-h-0 bg-white rounded-xl mt-14 md:mt-2 m-2 p-4 sm:p-5 md:p-6 overflow-y-auto overflow-x-hidden border border-gray-200/80 shadow-inner">
           {children}
         </main>
       )}

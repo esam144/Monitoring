@@ -16,6 +16,7 @@ import {
 } from '../../utils/format';
 import SiteLiveTerminal from './SiteLiveTerminal';
 import PageShell, { AlertBanner, PageHeader } from './PageShell';
+import Select from '../ui/Select';
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 const REFRESH_MS = 45000;
 
@@ -568,18 +569,20 @@ export default function SitesPage() {
                   : `${historyTotal} check${historyTotal === 1 ? '' : 's'} in range`}
               </p>
             </div>
-            <select
+            <Select
               value={historyRange}
               onChange={(e) => {
                 setHistoryRange(e.target.value);
                 setHistoryPage(1);
               }}
-              className="input-field w-full sm:w-auto"
-            >
-              <option value="24h">24 Hours</option>
-              <option value="48h">48 Hours</option>
-              <option value="72h">72 Hours</option>
-            </select>
+              className="w-full sm:w-auto min-w-[9rem]"
+              aria-label="History range"
+              options={[
+                { value: '24h', label: '24 Hours' },
+                { value: '48h', label: '48 Hours' },
+                { value: '72h', label: '72 Hours' },
+              ]}
+            />
           </div>
 
           <div className="overflow-x-auto max-h-[280px] overflow-y-auto">
@@ -877,20 +880,19 @@ export default function SitesPage() {
           <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600">
             <label className="inline-flex items-center gap-2">
               <span className="font-semibold text-gray-700">Rows per page</span>
-              <select
+              <Select
                 value={pageSize}
                 onChange={(e) => {
                   setPageSize(Number(e.target.value));
                   setPage(1);
                 }}
-                className="bg-white border border-gray-300 text-gray-700 text-xs font-medium rounded-xl px-2.5 py-1.5"
-              >
-                {PAGE_SIZE_OPTIONS.map((size) => (
-                  <option key={size} value={size}>
-                    {size}
-                  </option>
-                ))}
-              </select>
+                className="w-[4.5rem]"
+                aria-label="Page size"
+                options={PAGE_SIZE_OPTIONS.map((size) => ({
+                  value: size,
+                  label: String(size),
+                }))}
+              />
             </label>
             <span>
               {(() => {
@@ -973,10 +975,14 @@ export default function SitesPage() {
               </div>
               <div>
                 <label className="label-field">Type</label>
-                <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} className="input-field">
-                  <option value="frontend">Frontend</option>
-                  <option value="backend">Backend</option>
-                </select>
+                <Select
+                  value={form.type}
+                  onChange={(e) => setForm({ ...form, type: e.target.value })}
+                  options={[
+                    { value: 'frontend', label: 'Frontend' },
+                    { value: 'backend', label: 'Backend' },
+                  ]}
+                />
               </div>
               <div>
                 <label className="label-field">URL</label>
@@ -989,10 +995,14 @@ export default function SitesPage() {
                 </div>
                 <div>
                   <label className="label-field">Unit</label>
-                  <select value={form.checkIntervalUnit} onChange={(e) => setForm({ ...form, checkIntervalUnit: e.target.value })} className="input-field">
-                    <option value="minutes">Minutes</option>
-                    <option value="hours">Hours</option>
-                  </select>
+                  <Select
+                    value={form.checkIntervalUnit}
+                    onChange={(e) => setForm({ ...form, checkIntervalUnit: e.target.value })}
+                    options={[
+                      { value: 'minutes', label: 'Minutes' },
+                      { value: 'hours', label: 'Hours' },
+                    ]}
+                  />
                 </div>
               </div>
               <label className="flex items-center justify-between text-sm font-medium text-gray-700 pt-1">
