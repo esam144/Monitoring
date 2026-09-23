@@ -194,17 +194,42 @@ export default function SitesPage() {
   const handleToggleMonitoring = async (e, site) => {
     e.stopPropagation();
     setError('');
+    const nextEnabled = !site.monitoringEnabled;
+
+    // Optimistic update — switch flips immediately
+    setWebsites((prev) =>
+      prev.map((w) =>
+        w._id === site._id ? { ...w, monitoringEnabled: nextEnabled } : w
+      )
+    );
+    setSelectedSite((prev) =>
+      prev && prev._id === site._id
+        ? { ...prev, monitoringEnabled: nextEnabled }
+        : prev
+    );
+    setSuccess(
+      nextEnabled
+        ? `Monitoring enabled for ${site.name}.`
+        : `Monitoring disabled for ${site.name}.`
+    );
+
     try {
-      await updateWebsite(site._id, {
-        monitoringEnabled: !site.monitoringEnabled,
-      });
-      setSuccess(
-        !site.monitoringEnabled
-          ? `Monitoring enabled for ${site.name}.`
-          : `Monitoring disabled for ${site.name}.`
-      );
-      await loadWebsites();
+      await updateWebsite(site._id, { monitoringEnabled: nextEnabled });
     } catch (err) {
+      // Rollback on failure
+      setWebsites((prev) =>
+        prev.map((w) =>
+          w._id === site._id
+            ? { ...w, monitoringEnabled: site.monitoringEnabled }
+            : w
+        )
+      );
+      setSelectedSite((prev) =>
+        prev && prev._id === site._id
+          ? { ...prev, monitoringEnabled: site.monitoringEnabled }
+          : prev
+      );
+      setSuccess('');
       setError(getErrorMessage(err, 'Failed to update monitoring.'));
     }
   };
@@ -664,9 +689,20 @@ export default function SitesPage() {
                     <button
                       type="button"
                       onClick={(e) => handleToggleMonitoring(e, site)}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full ${site.monitoringEnabled ? 'bg-black' : 'bg-gray-300'}`}
+                      aria-label={
+                        site.monitoringEnabled
+                          ? 'Disable monitoring'
+                          : 'Enable monitoring'
+                      }
+                      className={`relative inline-flex h-5 w-9 cursor-pointer items-center rounded-full transition-colors duration-150 ${
+                        site.monitoringEnabled ? 'bg-black' : 'bg-gray-300'
+                      }`}
                     >
-                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white ${site.monitoringEnabled ? 'translate-x-4' : 'translate-x-1'}`} />
+                      <span
+                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform duration-150 ${
+                          site.monitoringEnabled ? 'translate-x-4' : 'translate-x-1'
+                        }`}
+                      />
                     </button>
                   </td>
                   <td className="px-4 py-3">{statusBadge(site)}</td>
@@ -726,10 +762,21 @@ export default function SitesPage() {
                 <button
                   type="button"
                   onClick={(e) => handleToggleMonitoring(e, site)}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full ${site.monitoringEnabled ? 'bg-black' : 'bg-gray-300'}`}
+                  className={`relative inline-flex h-5 w-9 cursor-pointer items-center rounded-full transition-colors duration-150 ${
+                    site.monitoringEnabled ? 'bg-black' : 'bg-gray-300'
+                  }`}
                   title="Toggle monitoring"
+                  aria-label={
+                    site.monitoringEnabled
+                      ? 'Disable monitoring'
+                      : 'Enable monitoring'
+                  }
                 >
-                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white ${site.monitoringEnabled ? 'translate-x-4' : 'translate-x-1'}`} />
+                  <span
+                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform duration-150 ${
+                      site.monitoringEnabled ? 'translate-x-4' : 'translate-x-1'
+                    }`}
+                  />
                 </button>
                 <span className="text-[10px] text-gray-500 mr-auto">
                   Monitoring {site.monitoringEnabled ? 'ON' : 'OFF'}
