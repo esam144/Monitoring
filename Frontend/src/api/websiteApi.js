@@ -16,3 +16,9 @@ export const createWebsite = (payload) => api.post('/websites', payload);
 export const updateWebsite = (id, payload) => api.put(`/websites/${id}`, payload);
 
 export const deleteWebsite = (id) => api.delete(`/websites/${id}`);
+
+export const getSlackSettings = (websiteId) =>
+  api.get(`/websites/${websiteId}/slack-settings`);
+
+export const updateSlackSettings = (websiteId, payload) =>
+  api.put(`/websites/${websiteId}/slack-settings`, payload);

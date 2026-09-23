@@ -82,7 +82,7 @@ export const testSlackAlert = async (req, res) => {
 
       if (alertType === 'down') {
         website.lastAlertStatus = 'up';
-        const { alertType: fired } = evaluateStatusAlert(
+        const { alertType: fired } = await evaluateStatusAlert(
           website,
           'down',
           checkMeta
@@ -95,7 +95,11 @@ export const testSlackAlert = async (req, res) => {
         website.lastStatus = 'down';
       } else {
         website.lastAlertStatus = 'down';
-        const { alertType: fired } = evaluateStatusAlert(website, 'up', checkMeta);
+        const { alertType: fired } = await evaluateStatusAlert(
+          website,
+          'up',
+          checkMeta
+        );
         if (fired !== 'recovery') {
           return res.status(500).json({
             message: `Failed to trigger RECOVERY transition for ${website.name}`,

@@ -66,12 +66,47 @@ const websiteSchema = new mongoose.Schema(
 
     /**
      * Last status for which an alert was emitted (up/down).
-     * Used so DOWN→DOWN does not re-alert and DOWN→UP sends one recovery.
-     * null means no alert has been sent yet.
+     * Tracks the current downtime incident; null means no alert yet.
      */
     lastAlertStatus: {
       type: String,
       enum: ['up', 'down'],
+      default: null,
+    },
+
+    /**
+     * Per-website Slack notification preferences.
+     * Global/default settings can be layered on later without a new collection.
+     */
+    slackSettings: {
+      enabled: {
+        type: Boolean,
+        default: true,
+      },
+      repeatInterval: {
+        type: Number,
+        default: 1,
+      },
+      repeatUnit: {
+        type: String,
+        enum: ['minutes', 'hours', 'days'],
+        default: 'hours',
+      },
+      recoveryNotification: {
+        type: Boolean,
+        default: true,
+      },
+    },
+
+    /** Set only after a Slack DOWN alert is successfully sent/queued. */
+    lastSlackNotificationAt: {
+      type: Date,
+      default: null,
+    },
+
+    /** Start of the current DOWN incident (cleared on recovery). */
+    downtimeStartedAt: {
+      type: Date,
       default: null,
     },
 

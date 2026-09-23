@@ -121,7 +121,7 @@ export const checkWebsite = async (website) => {
   website.lastCheckedAt = checkedAt;
   website.lastResponseTime = responseTime;
 
-  const { alertType } = evaluateStatusAlert(website, status, {
+  const { alertType } = await evaluateStatusAlert(website, status, {
     statusCode,
     responseTime,
     checkedAt,

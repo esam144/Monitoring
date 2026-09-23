@@ -2,7 +2,12 @@ import mongoose from 'mongoose';
 import Website from '../model/Website.js';
 import MonitorCheck from '../model/MonitorCheck.js';
 import { checkWebsite } from '../services/monitoringService.js';
-import { computeNextCheckAt, parseCheckInterval } from '../utils/interval.js';
+import {
+  computeNextCheckAt,
+  getSlackSettings,
+  parseCheckInterval,
+  parseSlackRepeatInterval,
+} from '../utils/interval.js';
 
 const isValidUrl = (value) => {
   try {
@@ -365,6 +370,110 @@ export const deleteWebsite = async (req, res) => {
     });
   } catch (error) {
     console.error('Delete website error:', error.message);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
+ * GET /api/websites/:id/slack-settings
+ */
+export const getSlackSettingsForWebsite = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid website id' });
+    }
+
+    const website = await Website.findById(id).select(
+      'name slackSettings lastSlackNotificationAt downtimeStartedAt'
+    );
+
+    if (!website) {
+      return res.status(404).json({ message: 'Website not found' });
+    }
+
+    return res.status(200).json({
+      websiteId: website._id,
+      websiteName: website.name,
+      slackSettings: getSlackSettings(website),
+      lastSlackNotificationAt: website.lastSlackNotificationAt,
+      downtimeStartedAt: website.downtimeStartedAt,
+    });
+  } catch (error) {
+    console.error('Get slack settings error:', error.message);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
+ * PUT /api/websites/:id/slack-settings
+ */
+export const updateSlackSettingsForWebsite = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid website id' });
+    }
+
+    const website = await Website.findById(id);
+
+    if (!website) {
+      return res.status(404).json({ message: 'Website not found' });
+    }
+
+    const {
+      enabled,
+      repeatInterval,
+      repeatUnit,
+      recoveryNotification,
+    } = req.body || {};
+
+    const current = getSlackSettings(website);
+
+    if (enabled !== undefined) {
+      const parsed = parseBoolean(enabled, 'enabled');
+      if (parsed.error) return res.status(400).json({ message: parsed.error });
+      current.enabled = parsed.value;
+    }
+
+    if (recoveryNotification !== undefined) {
+      const parsed = parseBoolean(recoveryNotification, 'recoveryNotification');
+      if (parsed.error) return res.status(400).json({ message: parsed.error });
+      current.recoveryNotification = parsed.value;
+    }
+
+    if (repeatInterval !== undefined || repeatUnit !== undefined) {
+      const intervalParsed = parseSlackRepeatInterval(
+        repeatInterval !== undefined ? repeatInterval : current.repeatInterval,
+        repeatUnit !== undefined ? repeatUnit : current.repeatUnit
+      );
+      if (intervalParsed.error) {
+        return res.status(400).json({ message: intervalParsed.error });
+      }
+      current.repeatInterval = intervalParsed.value;
+      current.repeatUnit = intervalParsed.unit;
+    }
+
+    website.slackSettings = {
+      enabled: current.enabled,
+      repeatInterval: current.repeatInterval,
+      repeatUnit: current.repeatUnit,
+      recoveryNotification: current.recoveryNotification,
+    };
+    website.updatedBy = req.user._id;
+
+    await website.save();
+
+    return res.status(200).json({
+      message: 'Slack settings updated successfully',
+      websiteId: website._id,
+      websiteName: website.name,
+      slackSettings: getSlackSettings(website),
+    });
+  } catch (error) {
+    console.error('Update slack settings error:', error.message);
     return res.status(500).json({ message: 'Server error' });
   }
 };
