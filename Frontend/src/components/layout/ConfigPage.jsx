@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getSlackStatus } from '../../api/monitoringApi';
 import {
@@ -9,6 +9,7 @@ import {
 import { getErrorMessage } from '../../api/axios';
 import PageShell, { AlertBanner, PageHeader } from './PageShell';
 
+const SUCCESS_DISMISS_MS = 2500;
 const Row = ({ label, value }) => (
   <div className="flex items-start justify-between gap-4 py-2.5 border-b border-gray-100 last:border-0">
     <span className="text-sm text-gray-500 shrink-0">{label}</span>
@@ -56,6 +57,16 @@ export default function ConfigPage() {
   const [saving, setSaving] = useState(false);
   const [settingsError, setSettingsError] = useState('');
   const [settingsSuccess, setSettingsSuccess] = useState('');
+  const successTimerRef = useRef(null);
+
+  const clearSuccessTimer = useCallback(() => {
+    if (successTimerRef.current) {
+      clearTimeout(successTimerRef.current);
+      successTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => clearSuccessTimer(), [clearSuccessTimer]);
 
   useEffect(() => {
     let cancelled = false;
@@ -118,6 +129,7 @@ export default function ConfigPage() {
     }
     setSettingsLoading(true);
     setSettingsError('');
+    clearSuccessTimer();
     setSettingsSuccess('');
     try {
       const { data } = await getSlackSettings(websiteId);
@@ -136,7 +148,7 @@ export default function ConfigPage() {
     } finally {
       setSettingsLoading(false);
     }
-  }, []);
+  }, [clearSuccessTimer]);
 
   useEffect(() => {
     if (selectedWebsiteId) {
@@ -156,6 +168,7 @@ export default function ConfigPage() {
 
     setSaving(true);
     setSettingsError('');
+    clearSuccessTimer();
     setSettingsSuccess('');
     try {
       const { data } = await updateSlackSettings(selectedWebsiteId, {
@@ -172,6 +185,10 @@ export default function ConfigPage() {
         recoveryNotification: s.recoveryNotification !== false,
       });
       setSettingsSuccess('Slack settings saved.');
+      successTimerRef.current = setTimeout(() => {
+        setSettingsSuccess('');
+        successTimerRef.current = null;
+      }, SUCCESS_DISMISS_MS);
     } catch (err) {
       setSettingsError(
         getErrorMessage(err, 'Unable to save Slack settings. Please try again.')
