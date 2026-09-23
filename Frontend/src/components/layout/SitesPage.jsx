@@ -19,6 +19,57 @@ import PageShell, { AlertBanner, PageHeader } from './PageShell';
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 const REFRESH_MS = 45000;
 
+const CopyIcon = () => (
+  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+  </svg>
+);
+
+const CheckIcon = () => (
+  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.25" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+  </svg>
+);
+
+function CopyUrlButton({ url }) {
+  const [copied, setCopied] = useState(false);
+  const timerRef = useRef(null);
+
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
+
+  const handleCopy = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard may be blocked; keep UI quiet
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      title="Copy URL"
+      aria-label={copied ? 'URL copied' : 'Copy URL'}
+      onClick={handleCopy}
+      className={`inline-flex shrink-0 items-center justify-center rounded-md p-1 transition-colors ${
+        copied
+          ? 'text-emerald-600 bg-emerald-50'
+          : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
+      }`}
+    >
+      {copied ? <CheckIcon /> : <CopyIcon />}
+    </button>
+  );
+}
+
 const emptyForm = {
   name: '',
   type: 'frontend',
@@ -460,14 +511,17 @@ export default function SitesPage() {
                 </h1>
                 {statusBadge(selectedSite)}
               </div>
-              <a
-                href={selectedSite.url}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-1 block text-sm text-blue-600 hover:underline truncate max-w-full"
-              >
-                {selectedSite.url}
-              </a>
+              <div className="mt-1 flex items-center gap-1.5 min-w-0 max-w-full">
+                <CopyUrlButton url={selectedSite.url} />
+                <a
+                  href={selectedSite.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-blue-600 hover:underline truncate min-w-0"
+                >
+                  {selectedSite.url}
+                </a>
+              </div>
               <p className="mt-1 text-sm text-gray-500">
                 Created by {personName(selectedSite.createdBy)}
                 {selectedSite.updatedBy
@@ -684,7 +738,14 @@ export default function SitesPage() {
                 >
                   <td className="px-4 py-3 font-semibold text-gray-900">{site.name}</td>
                   <td className="px-4 py-3 capitalize">{site.type}</td>
-                  <td className="px-4 py-3 text-xs text-blue-600 max-w-[160px] truncate">{site.url}</td>
+                  <td className="px-4 py-3 max-w-[200px]" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <CopyUrlButton url={site.url} />
+                      <span className="text-xs text-blue-600 truncate" title={site.url}>
+                        {site.url}
+                      </span>
+                    </div>
+                  </td>
                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
@@ -733,6 +794,36 @@ export default function SitesPage() {
               key={site._id}
               className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm space-y-3"
             >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHistoryPage(1);
+                      setHistoryPagination(null);
+                      setSelectedSite(site);
+                    }}
+                    className="w-full text-left"
+                  >
+                    <p className="font-bold text-gray-900 text-sm truncate">{site.name}</p>
+                  </button>
+                  <div className="mt-0.5 flex items-center gap-1.5 min-w-0">
+                    <CopyUrlButton url={site.url} />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHistoryPage(1);
+                        setHistoryPagination(null);
+                        setSelectedSite(site);
+                      }}
+                      className="text-[11px] text-blue-600 truncate min-w-0 text-left"
+                    >
+                      {site.url}
+                    </button>
+                  </div>
+                </div>
+                {statusBadge(site)}
+              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -742,14 +833,7 @@ export default function SitesPage() {
                 }}
                 className="w-full text-left"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-bold text-gray-900 text-sm truncate">{site.name}</p>
-                    <p className="text-[11px] text-blue-600 truncate mt-0.5">{site.url}</p>
-                  </div>
-                  {statusBadge(site)}
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-gray-600">
+                <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-600">
                   <p><span className="font-semibold text-gray-700">Type:</span> <span className="capitalize">{site.type}</span></p>
                   <p><span className="font-semibold text-gray-700">Interval:</span> {formatInterval(site.checkInterval, site.checkIntervalUnit)}</p>
                   <p><span className="font-semibold text-gray-700">Last:</span> {formatRelativeTime(site.lastCheckedAt)}</p>
