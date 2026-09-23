@@ -1,0 +1,22 @@
+# Root monorepo ignores (Backend/ and Frontend/ also have their own)
+
+# Secrets anywhere
+.env
+.env.*
+!**/.env.example
+
+# Dependencies & builds
+node_modules/
+dist/
+dist-ssr/
+
+# Logs / OS / editor
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.sw?
+
+# Vite cache
+.vite/
