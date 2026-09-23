@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import cors from 'cors';
 import connectDB from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import websiteRoutes from './routes/websiteRoutes.js';
@@ -12,6 +13,18 @@ import { migrateMonitoringData } from './utils/migrate.js';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+/** Comma-separated origins, e.g. https://app.vercel.app,http://localhost:5173 */
+const corsOrigins = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: corsOrigins.length > 0 ? corsOrigins : true,
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 app.get('/', (req, res) => {

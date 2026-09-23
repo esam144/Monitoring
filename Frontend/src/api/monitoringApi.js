@@ -29,7 +29,10 @@ export const openSiteMonitoringStream = (
     token,
     websiteId: String(websiteId),
   });
-  const source = new EventSource(`/api/monitoring/stream?${params.toString()}`);
+  const apiBase = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
+  const source = new EventSource(
+    `${apiBase}/monitoring/stream?${params.toString()}`
+  );
 
   const handle = (event) => {
     try {
