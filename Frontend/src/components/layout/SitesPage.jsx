@@ -118,6 +118,7 @@ export default function SitesPage() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -215,6 +216,7 @@ export default function SitesPage() {
   const openCreate = () => {
     setEditing(null);
     setForm(emptyForm);
+    setFormError('');
     setShowForm(true);
     setSuccess('');
   };
@@ -230,14 +232,21 @@ export default function SitesPage() {
       checkIntervalUnit: site.checkIntervalUnit || 'minutes',
       monitoringEnabled: Boolean(site.monitoringEnabled),
     });
+    setFormError('');
     setShowForm(true);
     setSuccess('');
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditing(null);
+    setFormError('');
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
-    setError('');
+    setFormError('');
     try {
       const payload = {
         name: form.name.trim(),
@@ -259,11 +268,10 @@ export default function SitesPage() {
             : 'Website saved. Monitoring is OFF.'
         );
       }
-      setShowForm(false);
-      setEditing(null);
+      closeForm();
       await loadWebsites();
     } catch (err) {
-      setError(getErrorMessage(err, 'Failed to save website.'));
+      setFormError(getErrorMessage(err, 'Failed to save website.'));
     } finally {
       setSaving(false);
     }
@@ -1042,7 +1050,7 @@ export default function SitesPage() {
           <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <h3 className="font-bold text-gray-900 text-base">{editing ? 'Edit Website' : 'Add Website'}</h3>
-              <button type="button" onClick={() => setShowForm(false)} className="text-gray-400 p-1" aria-label="Close">✕</button>
+              <button type="button" onClick={closeForm} className="text-gray-400 p-1" aria-label="Close">✕</button>
             </div>
             <form onSubmit={handleSave} className="p-4 space-y-3">
               <div>
@@ -1062,7 +1070,7 @@ export default function SitesPage() {
               </div>
               <div>
                 <label className="label-field">URL</label>
-                <input required type="url" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} className="input-field" />
+                <input required type="url" value={form.url} onChange={(e) => { setForm({ ...form, url: e.target.value }); setFormError(''); }} className="input-field" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1085,8 +1093,9 @@ export default function SitesPage() {
                 Enable Monitoring
                 <input type="checkbox" checked={form.monitoringEnabled} onChange={(e) => setForm({ ...form, monitoringEnabled: e.target.checked })} />
               </label>
+              {formError && <AlertBanner>{formError}</AlertBanner>}
               <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
-                <button type="button" onClick={() => setShowForm(false)} className="btn-ghost">Cancel</button>
+                <button type="button" onClick={closeForm} className="btn-ghost">Cancel</button>
                 <button type="submit" disabled={saving} className="btn-primary">
                   {saving ? 'Saving…' : 'Save Website'}
                 </button>
