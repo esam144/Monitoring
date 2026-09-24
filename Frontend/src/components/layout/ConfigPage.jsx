@@ -53,7 +53,7 @@ const SettingRow = ({ title, hint, children }) => (
     <div className="min-w-0">
       <p className="text-sm font-medium text-gray-900 leading-snug">{title}</p>
       {hint ? (
-        <p className="text-xs text-gray-500 mt-0.5 leading-snug">{hint}</p>
+        <p className="text-xs text-gray-500 mt-1.5 leading-snug">{hint}</p>
       ) : null}
     </div>
     <div className="flex w-full min-w-0 items-center justify-start sm:justify-end gap-2">
@@ -256,7 +256,7 @@ export default function ConfigPage() {
             <h2 className="text-lg font-semibold text-gray-900">
               Slack Notifications
             </h2>
-            <p className="mt-0.5 text-sm text-gray-500">
+            <p className="mt-1.5 text-sm text-gray-500">
               Per-website alert timing. Backend owns all scheduling.
             </p>
           </div>
