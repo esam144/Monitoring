@@ -88,7 +88,7 @@ const emptyForm = {
   name: '',
   type: 'frontend',
   url: '',
-  checkInterval: 5,
+  checkInterval: 10,
   checkIntervalUnit: 'minutes',
   monitoringEnabled: true,
 };
@@ -226,7 +226,7 @@ export default function SitesPage() {
       name: site.name || '',
       type: site.type || 'frontend',
       url: site.url || '',
-      checkInterval: site.checkInterval || 5,
+      checkInterval: site.checkInterval || 10,
       checkIntervalUnit: site.checkIntervalUnit || 'minutes',
       monitoringEnabled: Boolean(site.monitoringEnabled),
     });
@@ -808,9 +808,15 @@ export default function SitesPage() {
                   <td className="px-4 py-3 max-w-[200px]" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-1.5 min-w-0">
                       <CopyUrlButton url={site.url} />
-                      <span className="text-xs text-blue-600 truncate" title={site.url}>
+                      <a
+                        href={site.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={site.url}
+                        className="text-xs text-blue-600 hover:underline truncate min-w-0"
+                      >
                         {site.url}
-                      </span>
+                      </a>
                     </div>
                   </td>
                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -885,17 +891,14 @@ export default function SitesPage() {
                   </button>
                   <div className="mt-0.5 flex items-center gap-1.5 min-w-0">
                     <CopyUrlButton url={site.url} />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setHistoryPage(1);
-                        setHistoryPagination(null);
-                        setSelectedSite(site);
-                      }}
-                      className="text-[11px] text-blue-600 truncate min-w-0 text-left"
+                    <a
+                      href={site.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[11px] text-blue-600 hover:underline truncate min-w-0"
                     >
                       {site.url}
-                    </button>
+                    </a>
                   </div>
                 </div>
                 {statusBadge(site)}

@@ -55,7 +55,7 @@ const SettingRow = ({ title, hint, children }) => (
 
 const defaultSlackForm = {
   enabled: true,
-  repeatInterval: 1,
+  repeatInterval: 6,
   repeatUnit: 'hours',
   recoveryNotification: true,
 };
@@ -152,7 +152,7 @@ export default function ConfigPage() {
       const s = data?.slackSettings || defaultSlackForm;
       setSlackForm({
         enabled: s.enabled !== false,
-        repeatInterval: s.repeatInterval ?? 1,
+        repeatInterval: s.repeatInterval ?? 6,
         repeatUnit: s.repeatUnit || 'hours',
         recoveryNotification: s.recoveryNotification !== false,
       });

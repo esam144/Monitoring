@@ -18,6 +18,55 @@ const isValidUrl = (value) => {
   }
 };
 
+/**
+ * Normalize URL for duplicate detection:
+ * - trim
+ * - lowercase hostname
+ * - strip trailing slash (except root path)
+ * - drop hash
+ */
+const normalizeWebsiteUrl = (value) => {
+  const parsed = new URL(String(value).trim());
+  const protocol = parsed.protocol.toLowerCase();
+  const host = parsed.hostname.toLowerCase();
+  const port = parsed.port ? `:${parsed.port}` : '';
+  let pathname = parsed.pathname || '/';
+  if (pathname.length > 1 && pathname.endsWith('/')) {
+    pathname = pathname.slice(0, -1);
+  }
+  return `${protocol}//${host}${port}${pathname}${parsed.search}`;
+};
+
+/**
+ * Find another website with the same normalized URL.
+ * @param {string} url
+ * @param {string|null} [excludeId]
+ */
+const findDuplicateByUrl = async (url, excludeId = null) => {
+  let normalized;
+  try {
+    normalized = normalizeWebsiteUrl(url);
+  } catch {
+    return null;
+  }
+
+  const filter = excludeId
+    ? { _id: { $ne: excludeId } }
+    : {};
+  const websites = await Website.find(filter).select('_id name url');
+
+  for (const site of websites) {
+    try {
+      if (normalizeWebsiteUrl(site.url) === normalized) {
+        return site;
+      }
+    } catch {
+      // skip invalid stored URLs
+    }
+  }
+  return null;
+};
+
 const parseBoolean = (value, fieldName) => {
   if (typeof value === 'boolean') return { value };
   return { error: `${fieldName} must be a boolean` };
@@ -71,8 +120,15 @@ export const createWebsite = async (req, res) => {
       return res.status(400).json({ message: 'URL must be a valid http or https address' });
     }
 
+    const duplicate = await findDuplicateByUrl(url.trim());
+    if (duplicate) {
+      return res.status(400).json({
+        message: 'A website with this URL already exists',
+      });
+    }
+
     const intervalParsed = parseCheckInterval(
-      checkInterval === undefined ? 5 : checkInterval,
+      checkInterval === undefined ? 10 : checkInterval,
       checkIntervalUnit === undefined ? 'minutes' : checkIntervalUnit
     );
     if (intervalParsed.error) {
@@ -289,7 +345,22 @@ export const updateWebsite = async (req, res) => {
       if (typeof url !== 'string' || !url.trim() || !isValidUrl(url.trim())) {
         return res.status(400).json({ message: 'URL must be a valid http or https address' });
       }
-      website.url = url.trim();
+      const nextUrl = url.trim();
+      try {
+        if (normalizeWebsiteUrl(nextUrl) !== normalizeWebsiteUrl(website.url)) {
+          const duplicate = await findDuplicateByUrl(nextUrl, website._id);
+          if (duplicate) {
+            return res.status(400).json({
+              message: 'A website with this URL already exists',
+            });
+          }
+        }
+      } catch {
+        return res.status(400).json({
+          message: 'URL must be a valid http or https address',
+        });
+      }
+      website.url = nextUrl;
     }
 
     if (active !== undefined) {

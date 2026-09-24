@@ -33,7 +33,7 @@ const websiteSchema = new mongoose.Schema(
     checkInterval: {
       type: Number,
       required: true,
-      default: 5,
+      default: 10,
     },
 
     checkIntervalUnit: {
@@ -85,7 +85,7 @@ const websiteSchema = new mongoose.Schema(
       },
       repeatInterval: {
         type: Number,
-        default: 1,
+        default: 6,
       },
       repeatUnit: {
         type: String,

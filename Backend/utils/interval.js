@@ -95,7 +95,7 @@ export const getSlackSettings = (website) => {
     repeatInterval:
       Number.isInteger(s.repeatInterval) && s.repeatInterval > 0
         ? s.repeatInterval
-        : 1,
+        : 6,
     repeatUnit: SLACK_REPEAT_UNITS.includes(s.repeatUnit)
       ? s.repeatUnit
       : 'hours',
