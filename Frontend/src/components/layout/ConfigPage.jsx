@@ -12,18 +12,9 @@ import PageShell, { AlertBanner, PageHeader } from './PageShell';
 
 const SUCCESS_DISMISS_MS = 2500;
 
-/** Centered settings panel — matches Monitoring + Slack cards */
+/** Centered settings panel */
 const configCardClass =
   'w-full max-w-[48rem] mx-auto bg-white rounded-2xl border border-gray-200 shadow-sm p-4 sm:p-5';
-
-const Row = ({ label, value }) => (
-  <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-start gap-x-4 gap-y-1 py-2 border-b border-gray-100 last:border-0">
-    <span className="text-sm text-gray-500">{label}</span>
-    <span className="text-sm font-medium text-gray-900 sm:text-right">
-      {value}
-    </span>
-  </div>
-);
 
 const Toggle = ({ checked, onChange, label, disabled }) => (
   <button
@@ -46,14 +37,14 @@ const Toggle = ({ checked, onChange, label, disabled }) => (
 );
 
 /**
- * Dense settings row: ~60/40 label/control, controls right-aligned in control column.
+ * Settings row: ~60/40 label/control, controls right-aligned in control column.
  */
 const SettingRow = ({ title, hint, children }) => (
-  <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-center gap-x-4 gap-y-1.5 py-2 border-b border-gray-100 last:border-0">
-    <div className="min-w-0">
+  <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-center gap-x-4 gap-y-1.5 py-2.5 border-b border-gray-100 last:border-0">
+    <div className="min-w-0 flex flex-col gap-2">
       <p className="text-sm font-medium text-gray-900 leading-snug">{title}</p>
       {hint ? (
-        <p className="text-xs text-gray-500 mt-2.5 leading-snug">{hint}</p>
+        <p className="text-xs text-gray-500 leading-snug">{hint}</p>
       ) : null}
     </div>
     <div className="flex w-full min-w-0 items-center justify-start sm:justify-end gap-2">
@@ -237,26 +228,12 @@ export default function ConfigPage() {
       {error && <AlertBanner>{error}</AlertBanner>}
 
       <section className={configCardClass}>
-        <div className="flex items-center justify-between gap-3 mb-2">
-          <h2 className="text-lg font-semibold text-gray-900">Monitoring</h2>
-          <Link to="/sites" className="text-sm font-semibold text-gray-900 hover:underline shrink-0">
-            Go to Sites →
-          </Link>
-        </div>
-        <div>
-          <Row label="Who runs checks" value="Automatic background monitoring" />
-          <Row label="Check intervals" value="Configured per site on Sites" />
-          <Row label="This app" value="Shows status, history, and live activity" />
-        </div>
-      </section>
-
-      <section className={configCardClass}>
         <div className="flex items-start justify-between gap-3 mb-2">
-          <div className="min-w-0">
+          <div className="min-w-0 flex flex-col gap-2">
             <h2 className="text-lg font-semibold text-gray-900">
               Slack Notifications
             </h2>
-            <p className="mt-2.5 text-sm text-gray-500">
+            <p className="text-sm text-gray-500">
               Per-website alert timing. Backend owns all scheduling.
             </p>
           </div>
