@@ -122,8 +122,9 @@ export const createWebsite = async (req, res) => {
 };
 
 /**
- * GET /api/websites?page=1&limit=20&status=all|up|down
+ * GET /api/websites?page=1&limit=20&status=all|up|down&search=
  * Server-side pagination via MongoDB skip/limit (not in-memory slice).
+ * Optional search matches name or url (case-insensitive).
  */
 export const getWebsites = async (req, res) => {
   try {
@@ -160,6 +161,20 @@ export const getWebsites = async (req, res) => {
     const filter = {};
     if (statusFilter === 'up' || statusFilter === 'down') {
       filter.lastStatus = statusFilter;
+    }
+
+    const searchRaw =
+      req.query.search === undefined || req.query.search === null
+        ? ''
+        : String(req.query.search).trim();
+
+    if (searchRaw) {
+      // Escape regex metacharacters so user input is treated as a literal substring
+      const escaped = searchRaw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      filter.$or = [
+        { name: { $regex: escaped, $options: 'i' } },
+        { url: { $regex: escaped, $options: 'i' } },
+      ];
     }
 
     const totalItems = await Website.countDocuments(filter);

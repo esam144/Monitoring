@@ -6,6 +6,7 @@ export const getWebsites = (params = {}) =>
       page: params.page ?? 1,
       limit: params.limit ?? 20,
       status: params.status ?? 'all',
+      ...(params.search ? { search: params.search } : {}),
     },
   });
 

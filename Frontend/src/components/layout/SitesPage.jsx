@@ -19,6 +19,19 @@ import PageShell, { AlertBanner, PageHeader } from './PageShell';
 import Select from '../ui/Select';
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 const REFRESH_MS = 45000;
+const SEARCH_DEBOUNCE_MS = 300;
+
+const SearchIcon = () => (
+  <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z" />
+  </svg>
+);
+
+const ClearSearchIcon = () => (
+  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.25" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
+  </svg>
+);
 
 const CopyIcon = () => (
   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -86,6 +99,8 @@ export default function SitesPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [searchInput, setSearchInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -114,6 +129,7 @@ export default function SitesPage() {
         page,
         limit: pageSize,
         status: statusFilter,
+        search: searchQuery || undefined,
       });
       setWebsites(data.data?.websites || []);
       setPagination(data.data?.pagination || null);
@@ -126,7 +142,17 @@ export default function SitesPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, statusFilter]);
+  }, [page, pageSize, statusFilter, searchQuery]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const next = searchInput.trim();
+      if (next === searchQuery) return;
+      setPage(1);
+      setSearchQuery(next);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchInput, searchQuery]);
 
   useEffect(() => {
     setLoading(true);
@@ -685,8 +711,35 @@ export default function SitesPage() {
       {error && <AlertBanner>{error}</AlertBanner>}
       {success && <AlertBanner tone="success">{success}</AlertBanner>}
 
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-gray-50 p-3 rounded-2xl border border-gray-200">
-        <div className="flex gap-2 w-full sm:w-auto">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-gray-50 p-3 rounded-2xl border border-gray-200">
+        <div className="relative w-full sm:flex-1 sm:min-w-0 sm:max-w-xl md:max-w-2xl">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2">
+            <SearchIcon />
+          </span>
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search websites..."
+            aria-label="Search websites by name or URL"
+            className="input-field pl-9 pr-9 py-2 text-sm"
+          />
+          {searchInput ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchInput('');
+                setSearchQuery('');
+                setPage(1);
+              }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+              aria-label="Clear search"
+            >
+              <ClearSearchIcon />
+            </button>
+          ) : null}
+        </div>
+        <div className="flex gap-2 w-full sm:w-auto sm:shrink-0 justify-start sm:justify-end">
           {['all', 'up', 'down'].map((s) => (
             <button
               key={s}
@@ -727,7 +780,18 @@ export default function SitesPage() {
             {loading ? (
               <tr><td colSpan="11" className="px-4 py-8 text-center text-gray-400 text-sm">Loading websites…</td></tr>
             ) : websites.length === 0 ? (
-              <tr><td colSpan="11" className="px-4 py-8 text-center text-gray-400 text-sm">No websites added yet.</td></tr>
+              <tr>
+                <td colSpan="11" className="px-4 py-8 text-center text-gray-400 text-sm">
+                  {searchQuery ? (
+                    <span className="inline-flex flex-col items-center gap-1">
+                      <span>No websites found</span>
+                      <span className="text-xs">Try searching by website name or URL.</span>
+                    </span>
+                  ) : (
+                    'No websites added yet.'
+                  )}
+                </td>
+              </tr>
             ) : (
               websites.map((site) => (
                 <tr
@@ -790,7 +854,16 @@ export default function SitesPage() {
         {loading ? (
           <p className="text-sm text-gray-500 text-center py-6">Loading websites…</p>
         ) : websites.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-6">No websites added yet.</p>
+          <div className="text-sm text-gray-500 text-center py-6 space-y-1">
+            {searchQuery ? (
+              <>
+                <p>No websites found</p>
+                <p className="text-xs">Try searching by website name or URL.</p>
+              </>
+            ) : (
+              <p>No websites added yet.</p>
+            )}
+          </div>
         ) : (
           websites.map((site) => (
             <div
