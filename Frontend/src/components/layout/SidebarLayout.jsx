@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
@@ -72,6 +72,11 @@ export default function SidebarLayout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const mainRef = useRef(null);
+
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [location.pathname]);
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
@@ -249,7 +254,10 @@ export default function SidebarLayout({ children }) {
       </aside>
 
       {!isMobileMenuOpen && (
-        <main className="flex-1 min-w-0 min-h-0 bg-white rounded-xl mt-14 md:mt-2 m-2 p-4 sm:p-5 md:p-6 overflow-y-auto overflow-x-hidden border border-gray-200/80 shadow-inner">
+        <main
+          ref={mainRef}
+          className="flex-1 min-w-0 min-h-0 bg-white rounded-xl mt-14 md:mt-2 m-2 p-4 sm:p-5 md:p-6 overflow-y-auto overflow-x-hidden border border-gray-200/80 shadow-inner"
+        >
           {children}
         </main>
       )}
