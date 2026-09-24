@@ -69,6 +69,8 @@ const navItemClass = (isActive) =>
 export default function SidebarLayout({ children }) {
   const [isHovered, setIsHovered] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -85,10 +87,25 @@ export default function SidebarLayout({ children }) {
     { id: 'users', label: 'Users', icon: <UsersIcon />, path: '/users' },
   ];
 
-  const handleLogout = async () => {
-    await logout();
-    setIsMobileMenuOpen(false);
-    navigate('/login');
+  const openLogoutModal = () => {
+    setShowLogoutModal(true);
+  };
+
+  const closeLogoutModal = () => {
+    if (loggingOut) return;
+    setShowLogoutModal(false);
+  };
+
+  const confirmLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await logout();
+      setIsMobileMenuOpen(false);
+      setShowLogoutModal(false);
+      navigate('/login');
+    } finally {
+      setLoggingOut(false);
+    }
   };
 
   const displayName = user?.name || user?.email || 'User';
@@ -149,7 +166,7 @@ export default function SidebarLayout({ children }) {
 
               <button
                 type="button"
-                onClick={handleLogout}
+                onClick={openLogoutModal}
                 className={`${navItemClass(false)} mt-auto`}
                 aria-label="Logout"
               >
@@ -223,7 +240,7 @@ export default function SidebarLayout({ children }) {
 
           <button
             type="button"
-            onClick={handleLogout}
+            onClick={openLogoutModal}
             title="Logout"
             aria-label="Logout"
             className={navItemClass(false)}
@@ -260,6 +277,56 @@ export default function SidebarLayout({ children }) {
         >
           {children}
         </main>
+      )}
+
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xl w-full max-w-md">
+            <div className="flex justify-between items-center border-b border-gray-100 p-4">
+              <h3 className="text-base font-bold text-gray-900">Log out</h3>
+              <button
+                type="button"
+                onClick={closeLogoutModal}
+                disabled={loggingOut}
+                className="text-gray-400 hover:text-black font-bold p-1 text-sm disabled:opacity-40"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <p className="text-sm text-gray-600 leading-relaxed">
+                Are you sure you want to log out
+                {displayName ? (
+                  <>
+                    {' '}
+                    as{' '}
+                    <span className="font-semibold text-gray-900">{displayName}</span>
+                  </>
+                ) : null}
+                ?
+              </p>
+              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={closeLogoutModal}
+                  disabled={loggingOut}
+                  className="btn-ghost"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmLogout}
+                  disabled={loggingOut}
+                  className="btn-danger"
+                >
+                  {loggingOut ? 'Logging out…' : 'Log out'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
