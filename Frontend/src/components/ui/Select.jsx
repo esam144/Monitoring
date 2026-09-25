@@ -181,8 +181,15 @@ export default function Select({
                 role="option"
                 aria-selected={isSelected}
                 onMouseEnter={() => setHighlight(index)}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => selectOption(opt)}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  selectOption(opt);
+                }}
                 className={`px-3 py-2 text-sm cursor-pointer transition-colors ${
                   isSelected
                     ? 'bg-gray-100 font-semibold text-gray-900'

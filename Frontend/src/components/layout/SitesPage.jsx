@@ -962,7 +962,7 @@ export default function SitesPage() {
       {pagination && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
           <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600">
-            <label className="inline-flex items-center gap-2">
+            <div className="inline-flex items-center gap-2">
               <span className="font-semibold text-gray-700">Rows per page</span>
               <Select
                 value={pageSize}
@@ -978,7 +978,7 @@ export default function SitesPage() {
                   label: String(size),
                 }))}
               />
-            </label>
+            </div>
             <span>
               {(() => {
                 const total = pagination.total ?? pagination.totalItems ?? 0;
