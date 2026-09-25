@@ -29,6 +29,7 @@ const classifyHttpStatus = (type, statusCode) => {
  * Resolve /health + base targets for backend sites.
  * - Does not append /health when the saved URL already ends with /health.
  * - Strips trailing slashes so we never produce //health or /health/health.
+ * - explicitHealth: user saved …/health directly (404 must not fall back).
  */
 const resolveBackendCheckUrls = (rawUrl) => {
   const parsed = new URL(rawUrl);
@@ -36,10 +37,10 @@ const resolveBackendCheckUrls = (rawUrl) => {
   const alreadyHealth = /\/health$/i.test(pathNoTrailing);
 
   if (alreadyHealth) {
-    const parentPath = pathNoTrailing.replace(/\/health$/i, '');
     return {
       healthUrl: `${parsed.origin}${pathNoTrailing}`,
-      baseUrl: parentPath ? `${parsed.origin}${parentPath}` : parsed.origin,
+      baseUrl: null,
+      explicitHealth: true,
     };
   }
 
@@ -50,6 +51,7 @@ const resolveBackendCheckUrls = (rawUrl) => {
   return {
     healthUrl: `${baseUrl}/health`,
     baseUrl,
+    explicitHealth: false,
   };
 };
 
@@ -99,17 +101,19 @@ const fetchCheckUrl = async (url, timeoutMs, startedAt) => {
 
 /**
  * Backend probe:
- * 1. GET <base>/health first (or the saved URL if it already ends with /health).
- * 2. Only HTTP 200 from /health → UP.
- * 3. 404 → fall back to base URL (existing backend classification).
- * 4. Any other status, timeout, or network error → DOWN (no base fallback).
+ * 1. If saved URL ends with /health: check that URL only.
+ *    200 → UP; 404 / other / timeout / network → DOWN (never fall back).
+ * 2. If saved URL is a base: check <base>/health first.
+ *    200 → UP; 404 → fall back to base (existing backend classification);
+ *    any other status / timeout / network → DOWN.
  */
 const probeBackend = async (websiteUrl, timeoutMs, startedAt) => {
   let healthUrl;
   let baseUrl;
+  let explicitHealth;
 
   try {
-    ({ healthUrl, baseUrl } = resolveBackendCheckUrls(websiteUrl));
+    ({ healthUrl, baseUrl, explicitHealth } = resolveBackendCheckUrls(websiteUrl));
   } catch (error) {
     return {
       statusCode: null,
@@ -131,11 +135,12 @@ const probeBackend = async (websiteUrl, timeoutMs, startedAt) => {
   }
 
   if (health.statusCode === 404) {
-    // Health route missing — fall back to the base URL only in this case.
-    if (baseUrl === healthUrl) {
+    // Explicitly saved /health URL: 404 means DOWN — never fall back.
+    if (explicitHealth || !baseUrl) {
       return { ...health, status: 'down' };
     }
 
+    // Auto-appended /health missing — fall back to the base URL.
     const base = await fetchCheckUrl(baseUrl, timeoutMs, startedAt);
     if (base.errorMessage) {
       return { ...base, status: 'down' };
@@ -147,7 +152,7 @@ const probeBackend = async (websiteUrl, timeoutMs, startedAt) => {
     };
   }
 
-  // 5xx or any other non-200 (except 404) → DOWN, no fallback
+  // Any other non-200 → DOWN, no fallback
   return { ...health, status: 'down' };
 };
 
