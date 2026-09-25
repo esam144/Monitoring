@@ -26,6 +26,132 @@ const classifyHttpStatus = (type, statusCode) => {
 };
 
 /**
+ * Resolve /health + base targets for backend sites.
+ * - Does not append /health when the saved URL already ends with /health.
+ * - Strips trailing slashes so we never produce //health or /health/health.
+ */
+const resolveBackendCheckUrls = (rawUrl) => {
+  const parsed = new URL(rawUrl);
+  const pathNoTrailing = parsed.pathname.replace(/\/+$/, '') || '';
+  const alreadyHealth = /\/health$/i.test(pathNoTrailing);
+
+  if (alreadyHealth) {
+    const parentPath = pathNoTrailing.replace(/\/health$/i, '');
+    return {
+      healthUrl: `${parsed.origin}${pathNoTrailing}`,
+      baseUrl: parentPath ? `${parsed.origin}${parentPath}` : parsed.origin,
+    };
+  }
+
+  const baseUrl = pathNoTrailing
+    ? `${parsed.origin}${pathNoTrailing}`
+    : parsed.origin;
+
+  return {
+    healthUrl: `${baseUrl}/health`,
+    baseUrl,
+  };
+};
+
+/**
+ * Perform a single timed GET. Never throws — network/timeout become errorMessage.
+ */
+const fetchCheckUrl = async (url, timeoutMs, startedAt) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      redirect: 'follow',
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'MonitoringBackend/1.0',
+        Accept: '*/*',
+      },
+    });
+
+    return {
+      statusCode: response.status,
+      responseTime: Date.now() - startedAt,
+      errorMessage: null,
+      checkedUrl: url,
+    };
+  } catch (error) {
+    let responseTime = Date.now() - startedAt;
+    let errorMessage = error.message || 'Network error';
+
+    if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+      errorMessage = 'Request timeout';
+      responseTime = timeoutMs;
+    }
+
+    return {
+      statusCode: null,
+      responseTime,
+      errorMessage,
+      checkedUrl: url,
+    };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
+/**
+ * Backend probe:
+ * 1. GET <base>/health first (or the saved URL if it already ends with /health).
+ * 2. Only HTTP 200 from /health → UP.
+ * 3. 404 → fall back to base URL (existing backend classification).
+ * 4. Any other status, timeout, or network error → DOWN (no base fallback).
+ */
+const probeBackend = async (websiteUrl, timeoutMs, startedAt) => {
+  let healthUrl;
+  let baseUrl;
+
+  try {
+    ({ healthUrl, baseUrl } = resolveBackendCheckUrls(websiteUrl));
+  } catch (error) {
+    return {
+      statusCode: null,
+      responseTime: Date.now() - startedAt,
+      errorMessage: error.message || 'Invalid URL',
+      checkedUrl: websiteUrl,
+      status: 'down',
+    };
+  }
+
+  const health = await fetchCheckUrl(healthUrl, timeoutMs, startedAt);
+
+  if (health.errorMessage) {
+    return { ...health, status: 'down' };
+  }
+
+  if (health.statusCode === 200) {
+    return { ...health, status: 'up' };
+  }
+
+  if (health.statusCode === 404) {
+    // Health route missing — fall back to the base URL only in this case.
+    if (baseUrl === healthUrl) {
+      return { ...health, status: 'down' };
+    }
+
+    const base = await fetchCheckUrl(baseUrl, timeoutMs, startedAt);
+    if (base.errorMessage) {
+      return { ...base, status: 'down' };
+    }
+
+    return {
+      ...base,
+      status: classifyHttpStatus('backend', base.statusCode),
+    };
+  }
+
+  // 5xx or any other non-200 (except 404) → DOWN, no fallback
+  return { ...health, status: 'down' };
+};
+
+/**
  * Central health-check function used by:
  * - scheduler
  * - manual check endpoint
@@ -52,58 +178,50 @@ export const checkWebsite = async (website) => {
     url: website.url,
     siteType: website.type,
     checkedAt: checkedAt.toISOString(),
-    message: 'Checking website…',
+    message:
+      website.type === 'backend'
+        ? 'Checking backend /health…'
+        : 'Checking website…',
   });
 
   let status = 'down';
   let statusCode = null;
   let responseTime = null;
   let errorMessage = null;
+  let checkedUrl = website.url;
 
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  if (website.type === 'backend') {
+    const result = await probeBackend(website.url, timeoutMs, start);
+    status = result.status;
+    statusCode = result.statusCode;
+    responseTime = result.responseTime;
+    errorMessage = result.errorMessage;
+    checkedUrl = result.checkedUrl;
+  } else {
+    const result = await fetchCheckUrl(website.url, timeoutMs, start);
+    statusCode = result.statusCode;
+    responseTime = result.responseTime;
+    errorMessage = result.errorMessage;
+    checkedUrl = result.checkedUrl;
 
-    try {
-      const response = await fetch(website.url, {
-        method: 'GET',
-        redirect: 'follow',
-        signal: controller.signal,
-        headers: {
-          'User-Agent': 'MonitoringBackend/1.0',
-          Accept: '*/*',
-        },
-      });
-
-      responseTime = Date.now() - start;
-      statusCode = response.status;
-      status = classifyHttpStatus(website.type, statusCode);
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  } catch (error) {
-    responseTime = Date.now() - start;
-
-    if (error.name === 'AbortError' || error.name === 'TimeoutError') {
-      errorMessage = 'Request timeout';
-      responseTime = timeoutMs;
+    if (result.errorMessage) {
+      status = 'down';
     } else {
-      errorMessage = error.message || 'Network error';
+      status = classifyHttpStatus(website.type, statusCode);
     }
-
-    status = 'down';
-    statusCode = null;
   }
 
   if (status === 'up') {
     logInfo(
-      `[MONITOR] ${website.name} → UP (${statusCode}) - ${responseTime}ms`
+      `[MONITOR] ${website.name} → UP (${statusCode}) - ${responseTime}ms [${checkedUrl}]`
     );
   } else if (errorMessage) {
-    logInfo(`[MONITOR] ${website.name} → DOWN - ${errorMessage}`);
+    logInfo(
+      `[MONITOR] ${website.name} → DOWN - ${errorMessage} [${checkedUrl}]`
+    );
   } else {
     logInfo(
-      `[MONITOR] ${website.name} → DOWN (${statusCode}) - ${responseTime}ms`
+      `[MONITOR] ${website.name} → DOWN (${statusCode}) - ${responseTime}ms [${checkedUrl}]`
     );
   }
 
@@ -143,6 +261,7 @@ export const checkWebsite = async (website) => {
     websiteId,
     websiteName: website.name,
     url: website.url,
+    checkedUrl,
     siteType: website.type,
     status,
     statusCode,
@@ -152,10 +271,10 @@ export const checkWebsite = async (website) => {
     checkedAt: checkedAt.toISOString(),
     message:
       status === 'up'
-        ? `Status: UP · HTTP ${statusCode ?? '—'} · ${responseTime ?? '—'}ms`
+        ? `Status: UP · HTTP ${statusCode ?? '—'} · ${responseTime ?? '—'}ms · ${checkedUrl}`
         : errorMessage
-          ? `Status: DOWN · Connection failed · ${errorMessage}`
-          : `Status: DOWN · HTTP ${statusCode ?? '—'} · ${responseTime ?? '—'}ms`,
+          ? `Status: DOWN · Connection failed · ${errorMessage} · ${checkedUrl}`
+          : `Status: DOWN · HTTP ${statusCode ?? '—'} · ${responseTime ?? '—'}ms · ${checkedUrl}`,
   });
 
   if (alertType === 'down' || alertType === 'recovery') {
