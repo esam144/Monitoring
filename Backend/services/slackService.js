@@ -36,14 +36,20 @@ export const formatSlackTime = (checkedAt) => {
   const date = checkedAt instanceof Date ? checkedAt : new Date(checkedAt || Date.now());
   if (Number.isNaN(date.getTime())) return 'N/A';
 
-  // e.g. "23 September, 1:48 am"
-  return date.toLocaleString('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
+  // Always Pakistan Standard Time regardless of server locale (e.g. Railway UTC).
+  // e.g. "26 September at 12:40 am PKT"
+  const formatted = date
+    .toLocaleString('en-GB', {
+      timeZone: 'Asia/Karachi',
+      day: 'numeric',
+      month: 'long',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    })
+    .replace(',', ' at');
+
+  return `${formatted} PKT`;
 };
 
 /**

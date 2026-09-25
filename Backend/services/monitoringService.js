@@ -1,10 +1,16 @@
 import MonitorCheck from '../model/MonitorCheck.js';
+import Website from '../model/Website.js';
 import { computeNextCheckAt } from '../utils/interval.js';
 import { logInfo } from '../utils/logger.js';
 import { evaluateStatusAlert } from './alertService.js';
 import { broadcastMonitoringEvent } from './monitoringEvents.js';
 
 const DEFAULT_TIMEOUT_MS = 10000;
+
+/** Per-website lock shared by scheduler, Check Now, and immediate checks. */
+const checkInFlight = new Set();
+
+export const clearCheckInFlight = () => checkInFlight.clear();
 
 const getTimeoutMs = () => {
   const value = Number(process.env.MONITOR_TIMEOUT_MS);
@@ -157,6 +163,27 @@ const probeBackend = async (websiteUrl, timeoutMs, startedAt) => {
 };
 
 /**
+ * Persist check + alert-incident fields without touching lastSlackNotificationAt.
+ * alertService owns lastSlackNotificationAt via updateOne after Slack success;
+ * a full website.save() would race and overwrite it with a stale null.
+ */
+const persistCheckState = async (website) => {
+  await Website.updateOne(
+    { _id: website._id },
+    {
+      $set: {
+        lastStatus: website.lastStatus,
+        lastCheckedAt: website.lastCheckedAt,
+        lastResponseTime: website.lastResponseTime,
+        nextCheckAt: website.nextCheckAt,
+        lastAlertStatus: website.lastAlertStatus,
+        downtimeStartedAt: website.downtimeStartedAt,
+      },
+    }
+  );
+};
+
+/**
  * Central health-check function used by:
  * - scheduler
  * - manual check endpoint
@@ -167,8 +194,44 @@ const probeBackend = async (websiteUrl, timeoutMs, startedAt) => {
  * Network/timeout failures never throw — they record status=down.
  * Alerts fire only on status transitions (via lastAlertStatus).
  * Live SSE clients (per-site terminal) receive check events.
+ *
+ * Concurrent checks for the same website are skipped (shared in-process lock).
  */
 export const checkWebsite = async (website) => {
+  const websiteId = website._id;
+  const id = websiteId?.toString?.();
+
+  if (!id) {
+    throw new Error('Website id is required');
+  }
+
+  if (checkInFlight.has(id)) {
+    logInfo(
+      `[MONITOR] Skipping concurrent check for ${website.name} (already in flight)`
+    );
+    return {
+      skipped: true,
+      reason: 'check_in_progress',
+      status: website.lastStatus ?? null,
+      statusCode: null,
+      responseTime: null,
+      checkedAt: website.lastCheckedAt ?? null,
+      previousStatus: website.lastStatus ?? null,
+      lastAlertStatus: website.lastAlertStatus ?? null,
+      alertType: null,
+      nextCheckAt: website.nextCheckAt ?? null,
+    };
+  }
+
+  checkInFlight.add(id);
+  try {
+    return await runCheckWebsite(website);
+  } finally {
+    checkInFlight.delete(id);
+  }
+};
+
+const runCheckWebsite = async (website) => {
   const timeoutMs = getTimeoutMs();
   const checkedAt = new Date();
   const start = Date.now();
@@ -260,7 +323,7 @@ export const checkWebsite = async (website) => {
     website.nextCheckAt = null;
   }
 
-  await website.save();
+  await persistCheckState(website);
 
   broadcastMonitoringEvent('check_completed', {
     websiteId,

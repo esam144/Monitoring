@@ -1,13 +1,12 @@
 import Website from '../model/Website.js';
 import { logError, logInfo } from '../utils/logger.js';
-import { checkWebsite } from './monitoringService.js';
+import { checkWebsite, clearCheckInFlight } from './monitoringService.js';
 
 // Poll frequently enough to honor 1-minute check intervals
 const DEFAULT_POLL_MS = 15_000;
 
 let started = false;
 let timer = null;
-const inFlight = new Set();
 
 const getPollIntervalMs = () => {
   const value = Number(process.env.MONITOR_POLL_INTERVAL_MS);
@@ -17,6 +16,7 @@ const getPollIntervalMs = () => {
 /**
  * Due-check worker: only checks websites where monitoringEnabled
  * and nextCheckAt <= now (or nextCheckAt is null / missing).
+ * Concurrent protection lives inside checkWebsite() (shared inFlight).
  */
 const runDueChecks = async () => {
   try {
@@ -31,10 +31,6 @@ const runDueChecks = async () => {
 
     await Promise.all(
       websites.map(async (website) => {
-        const id = website._id.toString();
-        if (inFlight.has(id)) return;
-
-        inFlight.add(id);
         try {
           await checkWebsite(website);
         } catch (error) {
@@ -42,8 +38,6 @@ const runDueChecks = async () => {
             `[MONITOR] Unexpected error checking ${website.name}:`,
             error.message
           );
-        } finally {
-          inFlight.delete(id);
         }
       })
     );
@@ -84,5 +78,5 @@ export const stopMonitoringScheduler = () => {
     timer = null;
   }
   started = false;
-  inFlight.clear();
+  clearCheckInFlight();
 };

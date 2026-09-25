@@ -269,6 +269,13 @@ export const checkWebsiteNow = async (req, res) => {
 
     const result = await checkWebsite(website);
 
+    if (result?.skipped) {
+      return res.status(200).json({
+        message: 'A check is already in progress for this website',
+        result,
+      });
+    }
+
     const message =
       result.status === 'up'
         ? 'Website checked successfully'
