@@ -970,6 +970,7 @@ export default function SitesPage() {
                   setPageSize(Number(e.target.value));
                   setPage(1);
                 }}
+                placement="top"
                 className="w-[4.5rem]"
                 aria-label="Page size"
                 options={PAGE_SIZE_OPTIONS.map((size) => ({

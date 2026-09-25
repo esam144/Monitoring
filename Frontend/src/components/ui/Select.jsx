@@ -19,7 +19,7 @@ const ChevronIcon = ({ open }) => (
  * Accessible custom select matching app input-field / menu styling.
  * onChange receives a synthetic event with e.target.value (native <select> shape).
  *
- * @param {{ value: string|number, onChange: Function, options: Array<{value:string|number,label:string}>, disabled?: boolean, className?: string, id?: string, 'aria-label'?: string, name?: string }} props
+ * @param {{ value: string|number, onChange: Function, options: Array<{value:string|number,label:string}>, disabled?: boolean, className?: string, id?: string, 'aria-label'?: string, name?: string, placement?: 'top'|'bottom' }} props
  */
 export default function Select({
   value,
@@ -29,6 +29,7 @@ export default function Select({
   className = '',
   id,
   name,
+  placement = 'bottom',
   'aria-label': ariaLabel,
 }) {
   const [open, setOpen] = useState(false);
@@ -167,7 +168,9 @@ export default function Select({
           role="listbox"
           aria-labelledby={triggerId}
           tabIndex={-1}
-          className="absolute z-50 mt-1.5 w-full min-w-[8rem] max-h-56 overflow-y-auto overflow-x-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+          className={`absolute z-50 w-full min-w-[8rem] max-h-56 overflow-y-auto overflow-x-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg ${
+            placement === 'top' ? 'bottom-full mb-1.5' : 'mt-1.5'
+          }`}
         >
           {options.map((opt, index) => {
             const isSelected = String(opt.value) === String(value);
