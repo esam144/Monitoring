@@ -292,11 +292,15 @@ export default function ConfigPage() {
                   value={selectedWebsiteId}
                   onChange={(e) => setSelectedWebsiteId(e.target.value)}
                   disabled={formDisabled}
-                  className="w-full max-w-[14rem]"
+                  searchable
+                  searchPlaceholder="Search websites…"
+                  className="w-full max-w-[18rem]"
                   aria-label="Website"
                   options={sites.map((site) => ({
                     value: site._id,
-                    label: site.name,
+                    label: `${site.name} (${
+                      site.type === 'backend' ? 'Backend' : 'Frontend'
+                    })`,
                   }))}
                 />
               </SettingRow>

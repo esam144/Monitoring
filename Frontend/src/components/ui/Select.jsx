@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 const ChevronIcon = ({ open }) => (
   <svg
@@ -19,7 +19,7 @@ const ChevronIcon = ({ open }) => (
  * Accessible custom select matching app input-field / menu styling.
  * onChange receives a synthetic event with e.target.value (native <select> shape).
  *
- * @param {{ value: string|number, onChange: Function, options: Array<{value:string|number,label:string}>, disabled?: boolean, className?: string, id?: string, 'aria-label'?: string, name?: string, placement?: 'top'|'bottom' }} props
+ * @param {{ value: string|number, onChange: Function, options: Array<{value:string|number,label:string}>, disabled?: boolean, className?: string, id?: string, 'aria-label'?: string, name?: string, placement?: 'top'|'bottom', searchable?: boolean, searchPlaceholder?: string }} props
  */
 export default function Select({
   value,
@@ -30,25 +30,38 @@ export default function Select({
   id,
   name,
   placement = 'bottom',
+  searchable = false,
+  searchPlaceholder = 'Search…',
   'aria-label': ariaLabel,
 }) {
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(-1);
+  const [query, setQuery] = useState('');
   const rootRef = useRef(null);
   const listRef = useRef(null);
+  const searchRef = useRef(null);
   const autoId = useId();
   const listboxId = `${autoId}-listbox`;
   const triggerId = id || `${autoId}-trigger`;
+  const searchId = `${autoId}-search`;
 
-  const selectedIndex = options.findIndex(
-    (opt) => String(opt.value) === String(value)
+  const selectedInAll = useMemo(
+    () => options.find((opt) => String(opt.value) === String(value)) || null,
+    [options, value]
   );
-  const selected =
-    selectedIndex >= 0 ? options[selectedIndex] : options[0] || null;
+
+  const filteredOptions = useMemo(() => {
+    if (!searchable || !query.trim()) return options;
+    const q = query.trim().toLowerCase();
+    return options.filter((opt) =>
+      String(opt.label ?? '').toLowerCase().includes(q)
+    );
+  }, [options, searchable, query]);
 
   const close = useCallback(() => {
     setOpen(false);
     setHighlight(-1);
+    setQuery('');
   }, []);
 
   const emitChange = useCallback(
@@ -97,8 +110,19 @@ export default function Select({
 
   useEffect(() => {
     if (!open) return;
-    setHighlight(selectedIndex >= 0 ? selectedIndex : 0);
-  }, [open, selectedIndex]);
+    const selectedFilteredIndex = filteredOptions.findIndex(
+      (opt) => String(opt.value) === String(value)
+    );
+    setHighlight(selectedFilteredIndex >= 0 ? selectedFilteredIndex : 0);
+  }, [open, value, filteredOptions]);
+
+  useEffect(() => {
+    if (!open || !searchable) return;
+    const t = requestAnimationFrame(() => {
+      searchRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(t);
+  }, [open, searchable]);
 
   useEffect(() => {
     if (!open || highlight < 0 || !listRef.current) return;
@@ -107,6 +131,35 @@ export default function Select({
       el.scrollIntoView({ block: 'nearest' });
     }
   }, [open, highlight]);
+
+  const moveHighlight = (delta) => {
+    if (filteredOptions.length === 0) {
+      setHighlight(-1);
+      return;
+    }
+    setHighlight((i) => {
+      const start = i < 0 ? 0 : i;
+      const next = start + delta;
+      if (next < 0) return 0;
+      if (next >= filteredOptions.length) return filteredOptions.length - 1;
+      return next;
+    });
+  };
+
+  const onListKeyDown = (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      moveHighlight(1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      moveHighlight(-1);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (highlight >= 0 && filteredOptions[highlight]) {
+        selectOption(filteredOptions[highlight]);
+      }
+    }
+  };
 
   const onTriggerKeyDown = (e) => {
     if (disabled) return;
@@ -118,17 +171,13 @@ export default function Select({
         return;
       }
       if (e.key === 'Enter' || e.key === ' ') {
-        if (highlight >= 0 && options[highlight]) {
-          selectOption(options[highlight]);
+        if (highlight >= 0 && filteredOptions[highlight]) {
+          selectOption(filteredOptions[highlight]);
         }
         return;
       }
-      if (e.key === 'ArrowDown') {
-        setHighlight((i) => Math.min((i < 0 ? selectedIndex : i) + 1, options.length - 1));
-      }
-      if (e.key === 'ArrowUp') {
-        setHighlight((i) => Math.max((i < 0 ? selectedIndex : i) - 1, 0));
-      }
+      if (e.key === 'ArrowDown') moveHighlight(1);
+      if (e.key === 'ArrowUp') moveHighlight(-1);
     } else if (e.key === 'Escape' && open) {
       e.preventDefault();
       close();
@@ -148,7 +197,8 @@ export default function Select({
         aria-label={ariaLabel}
         onClick={() => {
           if (disabled) return;
-          setOpen((v) => !v);
+          if (open) close();
+          else setOpen(true);
         }}
         onKeyDown={onTriggerKeyDown}
         className={`input-field flex items-center justify-between gap-2 text-left cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
@@ -156,53 +206,78 @@ export default function Select({
         }`}
       >
         <span className="truncate min-w-0">
-          {selected ? selected.label : 'Select…'}
+          {selectedInAll ? selectedInAll.label : 'Select…'}
         </span>
         <ChevronIcon open={open} />
       </button>
 
       {open && (
-        <ul
-          ref={listRef}
-          id={listboxId}
-          role="listbox"
-          aria-labelledby={triggerId}
-          tabIndex={-1}
-          className={`absolute z-50 w-full min-w-[8rem] max-h-56 overflow-y-auto overflow-x-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg ${
+        <div
+          className={`absolute z-50 w-full min-w-[8rem] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg ${
             placement === 'top' ? 'bottom-full mb-1.5' : 'mt-1.5'
           }`}
         >
-          {options.map((opt, index) => {
-            const isSelected = String(opt.value) === String(value);
-            const isHighlighted = index === highlight;
-            return (
-              <li
-                key={String(opt.value)}
-                role="option"
-                aria-selected={isSelected}
-                onMouseEnter={() => setHighlight(index)}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  selectOption(opt);
-                }}
-                className={`px-3 py-2 text-sm cursor-pointer transition-colors ${
-                  isSelected
-                    ? 'bg-gray-100 font-semibold text-gray-900'
-                    : isHighlighted
-                      ? 'bg-gray-50 text-gray-900'
-                      : 'text-gray-700'
-                }`}
-              >
-                {opt.label}
-              </li>
-            );
-          })}
-        </ul>
+          {searchable && (
+            <div className="border-b border-gray-100 p-1.5">
+              <input
+                ref={searchRef}
+                id={searchId}
+                type="text"
+                value={query}
+                placeholder={searchPlaceholder}
+                aria-label={searchPlaceholder}
+                autoComplete="off"
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={onListKeyDown}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="input-field w-full text-sm py-1.5 px-2"
+              />
+            </div>
+          )}
+          <ul
+            ref={listRef}
+            id={listboxId}
+            role="listbox"
+            aria-labelledby={triggerId}
+            tabIndex={-1}
+            className="max-h-56 overflow-y-auto overflow-x-hidden py-1"
+          >
+            {filteredOptions.length === 0 ? (
+              <li className="px-3 py-2 text-sm text-gray-500">No matches</li>
+            ) : (
+              filteredOptions.map((opt, index) => {
+                const isSelected = String(opt.value) === String(value);
+                const isHighlighted = index === highlight;
+                return (
+                  <li
+                    key={String(opt.value)}
+                    role="option"
+                    aria-selected={isSelected}
+                    onMouseEnter={() => setHighlight(index)}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      selectOption(opt);
+                    }}
+                    className={`px-3 py-2 text-sm cursor-pointer transition-colors ${
+                      isSelected
+                        ? 'bg-gray-100 font-semibold text-gray-900'
+                        : isHighlighted
+                          ? 'bg-gray-50 text-gray-900'
+                          : 'text-gray-700'
+                    }`}
+                  >
+                    {opt.label}
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </div>
       )}
     </div>
   );
