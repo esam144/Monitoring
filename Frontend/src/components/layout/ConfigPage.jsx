@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getSlackStatus } from '../../api/monitoringApi';
 import {
@@ -11,6 +11,11 @@ import Select from '../ui/Select';
 import PageShell, { AlertBanner, PageHeader } from './PageShell';
 
 const SUCCESS_DISMISS_MS = 2500;
+const SITE_SEARCH_DEBOUNCE_MS = 300;
+const SITE_PICKER_LIMIT = 50;
+
+const formatSiteLabel = (site) =>
+  `${site.name} (${site.type === 'backend' ? 'Backend' : 'Frontend'})`;
 
 /** Centered settings panel */
 const configCardClass =
@@ -66,7 +71,12 @@ export default function ConfigPage() {
   const [error, setError] = useState('');
 
   const [sites, setSites] = useState([]);
+  const [selectedSite, setSelectedSite] = useState(null);
+  const [catalogEmpty, setCatalogEmpty] = useState(false);
   const [sitesLoading, setSitesLoading] = useState(true);
+  const [sitesSearching, setSitesSearching] = useState(false);
+  const [siteSearchInput, setSiteSearchInput] = useState('');
+  const [siteSearchQuery, setSiteSearchQuery] = useState('');
   const [selectedWebsiteId, setSelectedWebsiteId] = useState('');
   const [slackForm, setSlackForm] = useState(defaultSlackForm);
   const [settingsLoading, setSettingsLoading] = useState(false);
@@ -74,6 +84,7 @@ export default function ConfigPage() {
   const [settingsError, setSettingsError] = useState('');
   const [settingsSuccess, setSettingsSuccess] = useState('');
   const successTimerRef = useRef(null);
+  const sitesRequestIdRef = useRef(0);
 
   const clearSuccessTimer = useCallback(() => {
     if (successTimerRef.current) {
@@ -109,33 +120,96 @@ export default function ConfigPage() {
   }, []);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setSiteSearchQuery(siteSearchInput.trim());
+    }, SITE_SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [siteSearchInput]);
+
+  useEffect(() => {
     let cancelled = false;
+    const requestId = ++sitesRequestIdRef.current;
+    const isInitial = !siteSearchQuery;
+
     const loadSites = async () => {
-      setSitesLoading(true);
+      if (isInitial) setSitesLoading(true);
+      else setSitesSearching(true);
+
       try {
-        const { data } = await getWebsites({ page: 1, limit: 100 });
+        const { data } = await getWebsites({
+          page: 1,
+          limit: SITE_PICKER_LIMIT,
+          search: siteSearchQuery || undefined,
+        });
+        if (cancelled || requestId !== sitesRequestIdRef.current) return;
+
         const list = data?.data?.websites || [];
-        if (!cancelled) {
-          setSites(list);
+        setSites(list);
+
+        if (isInitial) {
+          setCatalogEmpty(list.length === 0);
           if (list.length > 0) {
             setSelectedWebsiteId((prev) => prev || list[0]._id);
+            setSelectedSite((prev) => prev || list[0]);
           }
         }
       } catch (err) {
-        if (!cancelled) {
-          setSettingsError(
-            getErrorMessage(err, 'Unable to load websites for Slack settings.')
-          );
+        if (cancelled || requestId !== sitesRequestIdRef.current) return;
+        setSettingsError(
+          getErrorMessage(err, 'Unable to load websites for Slack settings.')
+        );
+        if (isInitial) {
           setSites([]);
+          setCatalogEmpty(true);
         }
       } finally {
-        if (!cancelled) setSitesLoading(false);
+        if (!cancelled && requestId === sitesRequestIdRef.current) {
+          setSitesLoading(false);
+          setSitesSearching(false);
+        }
       }
     };
+
     loadSites();
     return () => {
       cancelled = true;
     };
+  }, [siteSearchQuery]);
+
+  const websiteOptions = useMemo(() => {
+    const options = sites.map((site) => ({
+      value: site._id,
+      label: formatSiteLabel(site),
+    }));
+
+    if (
+      selectedSite &&
+      !options.some((opt) => String(opt.value) === String(selectedSite._id))
+    ) {
+      options.unshift({
+        value: selectedSite._id,
+        label: formatSiteLabel(selectedSite),
+      });
+    }
+
+    return options;
+  }, [sites, selectedSite]);
+
+  const handleWebsiteChange = (e) => {
+    const id = e.target.value;
+    setSelectedWebsiteId(id);
+    const fromList = sites.find((s) => String(s._id) === String(id));
+    if (fromList) {
+      setSelectedSite(fromList);
+    } else if (selectedSite && String(selectedSite._id) === String(id)) {
+      // keep current selectedSite
+    } else {
+      setSelectedSite(null);
+    }
+  };
+
+  const handleWebsiteSearchChange = useCallback((query) => {
+    setSiteSearchInput(query);
   }, []);
 
   const loadSettingsForSite = useCallback(async (websiteId) => {
@@ -215,8 +289,7 @@ export default function ConfigPage() {
   };
 
   const configured = Boolean(slack?.configured);
-  const formDisabled =
-    sitesLoading || settingsLoading || saving || !selectedWebsiteId;
+  const formDisabled = settingsLoading || saving || !selectedWebsiteId;
 
   return (
     <PageShell>
@@ -272,7 +345,7 @@ export default function ConfigPage() {
 
         {sitesLoading ? (
           <p className="text-sm text-gray-500">Loading websites…</p>
-        ) : sites.length === 0 ? (
+        ) : catalogEmpty ? (
           <p className="text-sm text-gray-500">
             No websites yet.{' '}
             <Link to="/sites" className="font-semibold text-gray-900 hover:underline">
@@ -290,18 +363,15 @@ export default function ConfigPage() {
                 <Select
                   id="slack-website"
                   value={selectedWebsiteId}
-                  onChange={(e) => setSelectedWebsiteId(e.target.value)}
+                  onChange={handleWebsiteChange}
                   disabled={formDisabled}
                   searchable
                   searchPlaceholder="Search websites…"
+                  onSearchChange={handleWebsiteSearchChange}
+                  searchLoading={sitesSearching}
                   className="w-full max-w-[18rem]"
                   aria-label="Website"
-                  options={sites.map((site) => ({
-                    value: site._id,
-                    label: `${site.name} (${
-                      site.type === 'backend' ? 'Backend' : 'Frontend'
-                    })`,
-                  }))}
+                  options={websiteOptions}
                 />
               </SettingRow>
 

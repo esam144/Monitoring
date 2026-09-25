@@ -19,7 +19,8 @@ const ChevronIcon = ({ open }) => (
  * Accessible custom select matching app input-field / menu styling.
  * onChange receives a synthetic event with e.target.value (native <select> shape).
  *
- * @param {{ value: string|number, onChange: Function, options: Array<{value:string|number,label:string}>, disabled?: boolean, className?: string, id?: string, 'aria-label'?: string, name?: string, placement?: 'top'|'bottom', searchable?: boolean, searchPlaceholder?: string }} props
+ * When `onSearchChange` is provided with `searchable`, filtering is left to the parent
+ * (server-side / async search). Otherwise options are filtered locally by label.
  */
 export default function Select({
   value,
@@ -32,6 +33,8 @@ export default function Select({
   placement = 'bottom',
   searchable = false,
   searchPlaceholder = 'Search…',
+  onSearchChange,
+  searchLoading = false,
   'aria-label': ariaLabel,
 }) {
   const [open, setOpen] = useState(false);
@@ -44,25 +47,27 @@ export default function Select({
   const listboxId = `${autoId}-listbox`;
   const triggerId = id || `${autoId}-trigger`;
   const searchId = `${autoId}-search`;
+  const asyncSearch = searchable && typeof onSearchChange === 'function';
 
   const selectedInAll = useMemo(
     () => options.find((opt) => String(opt.value) === String(value)) || null,
     [options, value]
   );
 
-  const filteredOptions = useMemo(() => {
-    if (!searchable || !query.trim()) return options;
+  const displayedOptions = useMemo(() => {
+    if (asyncSearch || !searchable || !query.trim()) return options;
     const q = query.trim().toLowerCase();
     return options.filter((opt) =>
       String(opt.label ?? '').toLowerCase().includes(q)
     );
-  }, [options, searchable, query]);
+  }, [options, searchable, query, asyncSearch]);
 
   const close = useCallback(() => {
     setOpen(false);
     setHighlight(-1);
     setQuery('');
-  }, []);
+    if (asyncSearch) onSearchChange('');
+  }, [asyncSearch, onSearchChange]);
 
   const emitChange = useCallback(
     (nextValue) => {
@@ -110,11 +115,11 @@ export default function Select({
 
   useEffect(() => {
     if (!open) return;
-    const selectedFilteredIndex = filteredOptions.findIndex(
+    const selectedFilteredIndex = displayedOptions.findIndex(
       (opt) => String(opt.value) === String(value)
     );
     setHighlight(selectedFilteredIndex >= 0 ? selectedFilteredIndex : 0);
-  }, [open, value, filteredOptions]);
+  }, [open, value, displayedOptions]);
 
   useEffect(() => {
     if (!open || !searchable) return;
@@ -133,7 +138,7 @@ export default function Select({
   }, [open, highlight]);
 
   const moveHighlight = (delta) => {
-    if (filteredOptions.length === 0) {
+    if (displayedOptions.length === 0) {
       setHighlight(-1);
       return;
     }
@@ -141,7 +146,7 @@ export default function Select({
       const start = i < 0 ? 0 : i;
       const next = start + delta;
       if (next < 0) return 0;
-      if (next >= filteredOptions.length) return filteredOptions.length - 1;
+      if (next >= displayedOptions.length) return displayedOptions.length - 1;
       return next;
     });
   };
@@ -155,8 +160,8 @@ export default function Select({
       moveHighlight(-1);
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (highlight >= 0 && filteredOptions[highlight]) {
-        selectOption(filteredOptions[highlight]);
+      if (highlight >= 0 && displayedOptions[highlight]) {
+        selectOption(displayedOptions[highlight]);
       }
     }
   };
@@ -171,8 +176,8 @@ export default function Select({
         return;
       }
       if (e.key === 'Enter' || e.key === ' ') {
-        if (highlight >= 0 && filteredOptions[highlight]) {
-          selectOption(filteredOptions[highlight]);
+        if (highlight >= 0 && displayedOptions[highlight]) {
+          selectOption(displayedOptions[highlight]);
         }
         return;
       }
@@ -182,6 +187,12 @@ export default function Select({
       e.preventDefault();
       close();
     }
+  };
+
+  const handleSearchChange = (e) => {
+    const next = e.target.value;
+    setQuery(next);
+    if (asyncSearch) onSearchChange(next);
   };
 
   return (
@@ -227,7 +238,7 @@ export default function Select({
                 placeholder={searchPlaceholder}
                 aria-label={searchPlaceholder}
                 autoComplete="off"
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={handleSearchChange}
                 onKeyDown={onListKeyDown}
                 onMouseDown={(e) => e.stopPropagation()}
                 className="input-field w-full text-sm py-1.5 px-2"
@@ -242,10 +253,12 @@ export default function Select({
             tabIndex={-1}
             className="max-h-56 overflow-y-auto overflow-x-hidden py-1"
           >
-            {filteredOptions.length === 0 ? (
+            {searchLoading ? (
+              <li className="px-3 py-2 text-sm text-gray-500">Searching…</li>
+            ) : displayedOptions.length === 0 ? (
               <li className="px-3 py-2 text-sm text-gray-500">No matches</li>
             ) : (
-              filteredOptions.map((opt, index) => {
+              displayedOptions.map((opt, index) => {
                 const isSelected = String(opt.value) === String(value);
                 const isHighlighted = index === highlight;
                 return (
