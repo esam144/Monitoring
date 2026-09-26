@@ -88,7 +88,7 @@ export default function Login() {
               <MonitorIcon />
             </div>
             <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-gray-900 text-balance leading-snug">
-              Welcome to Monitoring App
+              Monitoring App
             </h1>
             <p className="mt-1.5 text-sm text-gray-500">Sign in to continue</p>
           </div>
