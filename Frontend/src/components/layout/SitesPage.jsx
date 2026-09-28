@@ -88,8 +88,8 @@ const emptyForm = {
   name: '',
   type: 'frontend',
   url: '',
-  checkInterval: 10,
-  checkIntervalUnit: 'minutes',
+  checkInterval: 6,
+  checkIntervalUnit: 'hours',
   monitoringEnabled: true,
 };
 
@@ -228,8 +228,8 @@ export default function SitesPage() {
       name: site.name || '',
       type: site.type || 'frontend',
       url: site.url || '',
-      checkInterval: site.checkInterval || 10,
-      checkIntervalUnit: site.checkIntervalUnit || 'minutes',
+      checkInterval: site.checkInterval || 6,
+      checkIntervalUnit: site.checkIntervalUnit || 'hours',
       monitoringEnabled: Boolean(site.monitoringEnabled),
     });
     setFormError('');

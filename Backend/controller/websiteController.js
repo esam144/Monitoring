@@ -128,8 +128,8 @@ export const createWebsite = async (req, res) => {
     }
 
     const intervalParsed = parseCheckInterval(
-      checkInterval === undefined ? 10 : checkInterval,
-      checkIntervalUnit === undefined ? 'minutes' : checkIntervalUnit
+      checkInterval === undefined ? 6 : checkInterval,
+      checkIntervalUnit === undefined ? 'hours' : checkIntervalUnit
     );
     if (intervalParsed.error) {
       return res.status(400).json({ message: intervalParsed.error });

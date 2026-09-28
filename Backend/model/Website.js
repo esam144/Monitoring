@@ -33,13 +33,13 @@ const websiteSchema = new mongoose.Schema(
     checkInterval: {
       type: Number,
       required: true,
-      default: 10,
+      default: 6,
     },
 
     checkIntervalUnit: {
       type: String,
       enum: ['minutes', 'hours'],
-      default: 'minutes',
+      default: 'hours',
     },
 
     nextCheckAt: {
