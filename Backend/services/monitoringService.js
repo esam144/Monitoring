@@ -3,6 +3,7 @@ import Website from '../model/Website.js';
 import { computeNextCheckAt } from '../utils/interval.js';
 import { logInfo } from '../utils/logger.js';
 import { evaluateStatusAlert } from './alertService.js';
+import { probeWithBrowser } from './browserProbe.js';
 import { broadcastMonitoringEvent } from './monitoringEvents.js';
 
 const DEFAULT_TIMEOUT_MS = 10000;
@@ -273,7 +274,15 @@ const runCheckWebsite = async (website) => {
     errorMessage = result.errorMessage;
     checkedUrl = result.checkedUrl;
   } else {
-    const result = await fetchCheckUrl(website.url, timeoutMs, start);
+    let result = await fetchCheckUrl(website.url, timeoutMs, start);
+
+    if (!result.errorMessage && result.statusCode === 403) {
+      logInfo(
+        `[MONITOR] ${website.name} blocked the HTTP probe; retrying with Chromium`
+      );
+      result = await probeWithBrowser(website.url, timeoutMs, start);
+    }
+
     statusCode = result.statusCode;
     responseTime = result.responseTime;
     errorMessage = result.errorMessage;
