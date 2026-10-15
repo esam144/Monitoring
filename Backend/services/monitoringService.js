@@ -108,12 +108,13 @@ const fetchCheckUrl = async (url, timeoutMs, startedAt) => {
 /**
  * Backend probe:
  * 1. If saved URL ends with /health: check that URL only.
- *    200 → UP; 404 / other / timeout / network → DOWN (never fall back).
+ *    200 → UP; anything else / timeout / network → DOWN (never fall back).
  * 2. If saved URL is a base: check <base>/health first.
- *    200 → UP; 404 → fall back to base (existing backend classification);
- *    any other status / timeout / network → DOWN.
+ *    200 → UP;
+ *    404 / 401 / 403 → fall back to base (existing backend classification);
+ *    5xx / timeout / network → DOWN (no fallback).
  */
-const probeBackend = async (websiteUrl, timeoutMs, startedAt) => {
+export const probeBackend = async (websiteUrl, timeoutMs, startedAt) => {
   let healthUrl;
   let baseUrl;
   let explicitHealth;
@@ -140,13 +141,16 @@ const probeBackend = async (websiteUrl, timeoutMs, startedAt) => {
     return { ...health, status: 'up' };
   }
 
-  if (health.statusCode === 404) {
-    // Explicitly saved /health URL: 404 means DOWN — never fall back.
-    if (explicitHealth || !baseUrl) {
-      return { ...health, status: 'down' };
-    }
+  // Auto-appended /health only: missing (404) or auth-blocked (401/403) → try base.
+  // Explicit …/health URLs never fall back.
+  const canFallbackToBase =
+    !explicitHealth &&
+    Boolean(baseUrl) &&
+    (health.statusCode === 404 ||
+      health.statusCode === 401 ||
+      health.statusCode === 403);
 
-    // Auto-appended /health missing — fall back to the base URL.
+  if (canFallbackToBase) {
     const base = await fetchCheckUrl(baseUrl, timeoutMs, startedAt);
     if (base.errorMessage) {
       return { ...base, status: 'down' };
@@ -158,9 +162,12 @@ const probeBackend = async (websiteUrl, timeoutMs, startedAt) => {
     };
   }
 
-  // Any other non-200 → DOWN, no fallback
+  // 5xx or any other non-200 on /health → DOWN, no fallback
   return { ...health, status: 'down' };
 };
+
+/** Exported for unit tests. */
+export { resolveBackendCheckUrls };
 
 /**
  * Persist check + alert-incident fields without touching lastSlackNotificationAt.
